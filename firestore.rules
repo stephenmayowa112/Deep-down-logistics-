@@ -24,8 +24,8 @@ service cloud.firestore {
     }
 
     match /shipments/{shipmentId} {
-      // Clients can read their own shipments
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.client_id == request.auth.uid);
+      // Clients and guest users can read shipments for public tracking
+      allow read: if true;
       allow write: if isAdmin();
     }
 

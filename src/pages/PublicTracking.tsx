@@ -4,6 +4,8 @@ import { format } from "date-fns";
 import { Package, Search, Navigation, AlertCircle, ArrowLeft, MapPin, Box, Eye, Calendar, UserCheck } from "lucide-react";
 import { Shipment, TrackingUpdate } from "../types";
 import { getMockShipments, getMockUpdates } from "../lib/mockDb";
+import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export default function PublicTracking() {
   const { trackingId } = useParams();
@@ -14,13 +16,52 @@ export default function PublicTracking() {
   useEffect(() => {
     const fetchTracking = async () => {
       try {
-        const response = await fetch(`/api/track/${trackingId}`);
-        if (!response.ok) {
+        if (!trackingId) return;
+
+        // Query shipment by tracking_id directly from Firestore
+        const shipmentsRef = collection(db, "shipments");
+        const q = query(shipmentsRef, where("tracking_id", "==", trackingId), limit(1));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
           throw new Error("Shipment not found");
         }
-        const data = await response.json();
-        setShipment(data);
+
+        const shipmentDoc = snapshot.docs[0];
+        const shipmentData = shipmentDoc.data();
+
+        // Query tracking updates for this shipment
+        const updatesRef = collection(db, "tracking_updates");
+        const updatesQ = query(
+          updatesRef,
+          where("shipment_id", "==", shipmentDoc.id),
+          orderBy("created_at", "desc")
+        );
+        const updatesSnapshot = await getDocs(updatesQ);
+        const updates = updatesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as TrackingUpdate[];
+
+        setShipment({
+          id: shipmentDoc.id,
+          tracking_id: shipmentData.tracking_id,
+          client_id: shipmentData.client_id,
+          container_id: shipmentData.container_id,
+          shipping_mark: shipmentData.shipping_mark,
+          phone_number: shipmentData.phone_number,
+          ctn: shipmentData.ctn,
+          cbm: shipmentData.cbm,
+          freight_usd_per_cbm: shipmentData.freight_usd_per_cbm,
+          clearing_naira_per_cbm: shipmentData.clearing_naira_per_cbm,
+          status: shipmentData.status,
+          created_at: shipmentData.created_at,
+          updated_at: shipmentData.updated_at,
+          updates,
+        });
+        setError("");
       } catch (err: any) {
+        console.warn("Direct Firestore tracking failed, falling back to mock DB:", err);
         // Fallback to local storage mock database for quick-testing/bypasses
         const mocks = getMockShipments();
         const found = mocks.find(s => s.tracking_id.toUpperCase() === trackingId?.toUpperCase());
@@ -33,7 +74,7 @@ export default function PublicTracking() {
           });
           setError("");
         } else {
-          setError(err.message);
+          setError(err.message || "Shipment not found");
         }
       } finally {
         setLoading(false);

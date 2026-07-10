@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { LogOut, Package, ArrowRight, ExternalLink } from "lucide-react";
+import { LogOut, Package, ArrowRight, ExternalLink, Download, FileText } from "lucide-react";
 import { Shipment } from "../types";
 import { getMockShipments } from "../lib/mockDb";
+import { generateClientManifestPDF, generateConsignmentReceiptPDF } from "../utils/pdfGenerator";
+import { toast } from "sonner";
 
 export default function ClientDashboard() {
   const { dbUser, isMock, setMockMode } = useAuth();
@@ -76,9 +78,20 @@ export default function ClientDashboard() {
       </header>
 
       <main className="flex-1 flex flex-col overflow-auto max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
-        <div className="mb-6 shrink-0">
-          <h1 className="text-sm font-medium text-white">My Shipments</h1>
-          <p className="text-[10px] text-slate-400 mt-1">Track and manage your incoming cargo.</p>
+        <div className="mb-6 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-sm font-medium text-white">My Shipments</h1>
+            <p className="text-[10px] text-slate-400 mt-1">Track and manage your incoming cargo.</p>
+          </div>
+          {shipments.length > 0 && (
+            <button
+              onClick={() => generateClientManifestPDF(dbUser?.shipping_mark || "UNMARKED", dbUser?.phone_number || "", shipments)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download All (PDF Manifest)
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -118,16 +131,26 @@ export default function ClientDashboard() {
                   >
                     View Details <ArrowRight className="w-3 h-3" />
                   </Link>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/track/${shipment.tracking_id}`);
-                      alert("Tracking link copied!");
-                    }}
-                    className="text-slate-500 hover:text-blue-400 transition-colors"
-                    title="Copy Public Tracking Link"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => generateConsignmentReceiptPDF(shipment)}
+                      className="text-slate-400 hover:text-blue-400 transition-colors flex items-center gap-1"
+                      title="Download PDF Receipt / Note"
+                    >
+                      <FileText className="w-3 h-3" />
+                      <span className="text-[10px]">Receipt PDF</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/track/${shipment.tracking_id}`);
+                        toast.success("Tracking link copied to clipboard!");
+                      }}
+                      className="text-slate-500 hover:text-blue-400 transition-colors"
+                      title="Copy Public Tracking Link"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
