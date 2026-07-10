@@ -1,0 +1,61 @@
+{
+  "collections": [
+    {
+      "name": "users",
+      "fields": [
+        { "name": "role", "type": "string" },
+        { "name": "phone_number", "type": "string" },
+        { "name": "shipping_mark", "type": "string" },
+        { "name": "is_verified", "type": "boolean" }
+      ],
+      "indexes": [
+        { "fields": ["phone_number"] }
+      ]
+    },
+    {
+      "name": "containers",
+      "fields": [
+        { "name": "container_number", "type": "string" },
+        { "name": "origin_office", "type": "string" },
+        { "name": "departure_date", "type": "string" },
+        { "name": "created_at", "type": "number" }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "shipments",
+      "fields": [
+        { "name": "tracking_id", "type": "string" },
+        { "name": "client_id", "type": "string" },
+        { "name": "container_id", "type": "string" },
+        { "name": "shipping_mark", "type": "string" },
+        { "name": "phone_number", "type": "string" },
+        { "name": "ctn", "type": "number" },
+        { "name": "cbm", "type": "number" },
+        { "name": "freight_usd_per_cbm", "type": "number" },
+        { "name": "clearing_naira_per_cbm", "type": "number" },
+        { "name": "status", "type": "string" },
+        { "name": "created_at", "type": "number" },
+        { "name": "updated_at", "type": "number" }
+      ],
+      "indexes": [
+        { "fields": ["tracking_id"] },
+        { "fields": ["phone_number"] },
+        { "fields": ["container_id"] },
+        { "fields": ["client_id"] }
+      ]
+    },
+    {
+      "name": "tracking_updates",
+      "fields": [
+        { "name": "shipment_id", "type": "string" },
+        { "name": "status", "type": "string" },
+        { "name": "note", "type": "string" },
+        { "name": "created_at", "type": "number" }
+      ],
+      "indexes": [
+        { "fields": ["shipment_id"] }
+      ]
+    }
+  ]
+}

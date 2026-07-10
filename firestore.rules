@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      // In this preview, we can designate users as admin based on a role, or we can just say if they are authenticated and we set their custom claims.
+      // Alternatively, reading the role from users collection:
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if isAdmin();
+    }
+
+    match /containers/{containerId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /shipments/{shipmentId} {
+      // Clients can read their own shipments
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.client_id == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    match /tracking_updates/{updateId} {
+      allow read: if true; // We fetch these by server for public tracking or they are fetched by client
+      allow write: if isAdmin();
+    }
+  }
+}
