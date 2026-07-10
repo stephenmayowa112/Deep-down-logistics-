@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Premium Slate Dark background with soft circular gradients -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <rect width="480" height="480" x="16" y="16" rx="112" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="4" />
+
+  <!-- Logistics Consolidated Container Emblem with continuous global route lines -->
+  <g transform="translate(128, 128)" filter="url(#glow)">
+    <!-- Container isometric box -->
+    <path d="M 128 40 L 220 86 L 220 186 L 128 232 L 36 186 L 36 86 Z" fill="none" stroke="url(#logoGrad)" stroke-width="14" stroke-linejoin="round" />
+    
+    <!-- Isometric container inner grills -->
+    <path d="M 128 40 L 128 232" stroke="url(#logoGrad)" stroke-width="10" stroke-linejoin="round" />
+    <path d="M 36 86 L 128 132 L 220 86" fill="none" stroke="url(#logoGrad)" stroke-width="10" stroke-linejoin="round" />
+    
+    <!-- Vertical Container Ridges -->
+    <path d="M 82 109 L 82 209" stroke="rgba(255, 255, 255, 0.2)" stroke-width="6" />
+    <path d="M 174 109 L 174 209" stroke="rgba(255, 255, 255, 0.2)" stroke-width="6" />
+  </g>
+  
+  <!-- Dynamic Globe coordinate routes orbiting the container -->
+  <path d="M 80 256 Q 256 120, 432 256" fill="none" stroke="#2563eb" stroke-width="6" stroke-dasharray="10, 10" opacity="0.4" />
+  <path d="M 80 256 Q 256 392, 432 256" fill="none" stroke="#10b981" stroke-width="6" stroke-dasharray="10, 10" opacity="0.4" />
+</svg>

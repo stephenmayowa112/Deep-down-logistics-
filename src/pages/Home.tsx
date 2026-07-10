@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { motion } from "motion/react";
 import { 
   Package, 
   Search, 
@@ -66,7 +67,7 @@ export default function Home() {
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#070b14]/75 border-b border-white/5 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             {/* Claymorphic icon container */}
             <div className="w-10 h-10 clay-card-blue flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
               <Package className="w-5 h-5 text-white" />
@@ -79,7 +80,7 @@ export default function Home() {
                 Guangzhou • Lagos
               </span>
             </div>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8">
             <a href="#services" className="text-xs font-medium text-slate-400 hover:text-white transition-colors">
@@ -115,8 +116,88 @@ export default function Home() {
       <main className="flex-grow relative z-10">
         
         {/* Banner Announcement & Search Panel */}
-        <section className="relative pt-12 pb-20 sm:pb-28">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="relative pt-12 pb-20 sm:pb-28 overflow-hidden">
+          
+          {/* BACKGROUND MOTION NETWORK PATTERNS */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            {/* Floating particles or logistics icons */}
+            <motion.div 
+              animate={{ 
+                x: [0, 40, -20, 0], 
+                y: [0, -30, 20, 0],
+                rotate: [0, 10, -10, 0]
+              }}
+              transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[15%] left-[5%] text-blue-500/10"
+            >
+              <Plane className="w-16 h-16" />
+            </motion.div>
+
+            <motion.div 
+              animate={{ 
+                x: [0, -30, 30, 0], 
+                y: [0, 40, -20, 0],
+                rotate: [0, -15, 15, 0]
+              }}
+              transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[50%] right-[10%] text-indigo-500/10"
+            >
+              <Ship className="w-24 h-24" />
+            </motion.div>
+
+            <motion.div 
+              animate={{ 
+                x: [0, 25, -25, 0], 
+                y: [0, 30, -30, 0],
+              }}
+              transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute bottom-[10%] left-[25%] text-emerald-500/10"
+            >
+              <Package className="w-12 h-12" />
+            </motion.div>
+
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.15, 0.9, 1],
+                opacity: [0.03, 0.08, 0.05, 0.03]
+              }}
+              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[30%] left-[45%] w-96 h-96 rounded-full bg-blue-500/15 blur-[100px]"
+            />
+
+            <motion.div 
+              animate={{ 
+                scale: [0.9, 1.1, 0.95, 0.9],
+                opacity: [0.04, 0.09, 0.04, 0.04]
+              }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[10%] right-[30%] w-80 h-80 rounded-full bg-indigo-500/15 blur-[90px]"
+            />
+
+            {/* Dynamic animated routing line */}
+            <svg className="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
+              <motion.path 
+                d="M -100 150 Q 300 80, 600 300 T 1200 100 T 2000 250" 
+                fill="none" 
+                stroke="white" 
+                strokeWidth="2" 
+                strokeDasharray="6, 6"
+                animate={{ strokeDashoffset: [0, -60] }}
+                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.path 
+                d="M 100 400 Q 500 500, 900 250 T 1800 450" 
+                fill="none" 
+                stroke="#3b82f6" 
+                strokeWidth="1.5" 
+                strokeDasharray="5, 5"
+                animate={{ strokeDashoffset: [0, 50] }}
+                transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+              />
+            </svg>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             
             <div className="text-center mb-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-semibold tracking-wider uppercase border border-blue-500/20 backdrop-blur-md">
@@ -670,7 +751,7 @@ export default function Home() {
       <footer className="bg-[#05080f] border-t border-white/5 py-12 relative z-10 shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 pb-8 border-b border-white/5">
-            <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
               <div className="w-9 h-9 clay-card-blue flex items-center justify-center">
                 <Package className="w-5 h-5 text-white" />
               </div>
@@ -678,7 +759,7 @@ export default function Home() {
                 <span className="font-display font-bold text-sm text-white block">Deep Down Logistics</span>
                 <span className="text-[9px] text-slate-500 block">China to West Africa Cargo Freight</span>
               </div>
-            </div>
+            </Link>
             
             <div className="flex gap-8 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
               <a href="#services" className="hover:text-white transition-colors">Services</a>

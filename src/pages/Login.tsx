@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight, Shield } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -38,12 +38,14 @@ export default function Login() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-600/10 blur-[100px] pointer-events-none liquid-blob-2" />
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center relative z-10">
-          <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4">
-            <Package className="text-white w-6 h-6" />
-          </div>
-          <h2 className="mt-2 text-center text-xl font-display font-bold tracking-tight text-white">
-            Complete Your Profile
-          </h2>
+          <Link to="/" className="flex flex-col items-center group">
+            <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
+              <Package className="text-white w-6 h-6" />
+            </div>
+            <h2 className="mt-2 text-center text-xl font-display font-bold tracking-tight text-white group-hover:text-blue-400 transition-colors">
+              Complete Your Profile
+            </h2>
+          </Link>
           <p className="mt-1 text-center text-[10px] text-slate-500 tracking-wider uppercase font-semibold">
             China to Nigeria Cargo Cargo Logistics
           </p>
@@ -175,12 +177,14 @@ export default function Login() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-600/10 blur-[100px] pointer-events-none liquid-blob-2" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center relative z-10">
-        <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4 cursor-pointer" onClick={() => navigate("/")}>
-          <Package className="text-white w-6 h-6" />
-        </div>
-        <h2 className="mt-2 text-center text-xl font-display font-extrabold tracking-tight text-white">
-          Deep Down Logistics
-        </h2>
+        <Link to="/" className="flex flex-col items-center group">
+          <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
+            <Package className="text-white w-6 h-6" />
+          </div>
+          <h2 className="mt-2 text-center text-xl font-display font-extrabold tracking-tight text-white group-hover:text-blue-400 transition-colors">
+            Deep Down Logistics
+          </h2>
+        </Link>
         <p className="mt-1 text-center text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
           Secure Operator & Client Gateway
         </p>

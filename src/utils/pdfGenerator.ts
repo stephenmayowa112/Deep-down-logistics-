@@ -427,3 +427,156 @@ export function generateConsignmentReceiptPDF(shipment: Shipment) {
 
   doc.save(`DDL_Receipt_${shipment.tracking_id}.pdf`);
 }
+
+/**
+ * Generates a comprehensive PDF manifest of ALL shipments for the admin dashboard
+ */
+export function generateAdminManifestPDF(shipments: Shipment[]) {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const totalCBM = shipments.reduce((sum, s) => sum + (s.cbm || 0), 0);
+  const totalCTN = shipments.reduce((sum, s) => sum + (s.ctn || 0), 0);
+  const dateStr = format(new Date(), "dd MMM yyyy, hh:mm a");
+
+  // A4 Landscape: 297mm x 210mm
+  // Background Tint
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, 0, 297, 210, "F");
+
+  // Header Banner
+  doc.setFillColor(15, 23, 42); // deep navy #0f172a
+  doc.rect(0, 0, 297, 35, "F");
+
+  doc.setFillColor(37, 99, 235); // Blue strip
+  doc.rect(0, 35, 297, 1.5, "F");
+
+  // Title Branding
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("DEEP DOWN LOGISTICS - CENTRAL OFFICE", 15, 15);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(156, 163, 175);
+  doc.text("Master Consolidated Cargo Manifest & Cargo Tracking Register", 15, 21);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text("MASTER SYSTEM MANIFEST", 297 - 15, 15, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(147, 197, 253);
+  doc.text(`Export Date: ${dateStr}`, 297 - 15, 21, { align: "right" });
+
+  // Summary Metrics Panels (Horizontal flex on landscape)
+  const metricWidth = 83;
+  const metricHeight = 16;
+  const metricY = 43;
+
+  // Panel 1: Active Shipments
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(15, metricY, metricWidth, metricHeight, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text("TOTAL REGISTERED CONSIGNMENTS", 20, metricY + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`${shipments.length} Active Records`, 20, metricY + 11);
+
+  // Panel 2: Total Volume
+  doc.setFillColor(239, 246, 255);
+  doc.setDrawColor(191, 219, 254);
+  doc.rect(15 + metricWidth + 8, metricY, metricWidth, metricHeight, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(30, 64, 175);
+  doc.text("COMBINED CONSOLIDATED VOLUME", 15 + metricWidth + 13, metricY + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`${totalCBM.toFixed(3)} Cubic Meters (CBM)`, 15 + metricWidth + 13, metricY + 11);
+
+  // Panel 3: Total Cartons
+  doc.setFillColor(240, 253, 250);
+  doc.setDrawColor(153, 246, 228);
+  doc.rect(15 + (metricWidth * 2) + 16, metricY, metricWidth, metricHeight, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 118, 110);
+  doc.text("COMBINED PACKAGE COUNT", 15 + (metricWidth * 2) + 21, metricY + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`${totalCTN} Cartons (CTN)`, 15 + (metricWidth * 2) + 21, metricY + 11);
+
+  // Table header Title
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text("CONSOLIDATION REGISTER MATRIX", 15, 68);
+
+  // Table rows
+  const tableRows = shipments.map((s, idx) => [
+    idx + 1,
+    s.tracking_id,
+    s.shipping_mark,
+    s.phone_number || "N/A",
+    s.container_id || "PENDING DEPARTURE",
+    `${s.cbm.toFixed(3)} CBM`,
+    `${s.ctn} CTN`,
+    formatStatus(s.status),
+  ]);
+
+  // Table Render
+  autoTable(doc, {
+    startY: 72,
+    head: [["S/N", "Tracking ID", "Shipping Mark", "Consignee Phone", "Container ID", "CBM Volume", "CTN Count", "Transit Status"]],
+    body: tableRows,
+    theme: "striped",
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: "bold",
+      halign: "center",
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: "center" },
+      1: { cellWidth: 35, fontStyle: "bold", halign: "center" },
+      2: { cellWidth: 40, fontStyle: "bold" },
+      3: { cellWidth: 35, halign: "center" },
+      4: { cellWidth: 45, halign: "center" },
+      5: { cellWidth: 25, halign: "right" },
+      6: { cellWidth: 22, halign: "right" },
+      7: { cellWidth: 55, fontStyle: "bold" },
+    },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2.5,
+    },
+    alternateRowStyles: {
+      fillColor: [241, 245, 249],
+    },
+  });
+
+  // Footer metadata
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(203, 213, 225);
+    doc.text("DEEP DOWN LOGISTICS MASTER MANIFEST DISPATCH SYSTEM • CONFIDENTIAL", 15, 203);
+    doc.text(`Page ${i} of ${totalPages}`, 297 - 15, 203, { align: "right" });
+  }
+
+  doc.save(`DDL_Master_Manifest_${format(new Date(), "yyyyMMdd_HHmmss")}.pdf`);
+}

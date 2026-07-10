@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
 import { collection, getDocs, doc, writeBatch, setDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet } from "lucide-react";
+import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download } from "lucide-react";
 import { Shipment, ShipmentStatus } from "../types";
 import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
+import { generateAdminManifestPDF } from "../utils/pdfGenerator";
 
 export default function AdminDashboard() {
   const { dbUser, isMock, setMockMode } = useAuth();
@@ -187,12 +189,12 @@ export default function AdminDashboard() {
   return (
     <div className="h-full bg-[#0f172a] text-slate-300 flex flex-col font-sans overflow-hidden">
       <header className="h-14 border-b border-slate-800 flex items-center justify-between px-6 bg-[#0f172a] shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15">
             <Package className="w-4 h-4" />
           </div>
           <span className="font-semibold tracking-tight text-white">Deep Down Logistics</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-4">
           <span className="text-xs font-medium text-slate-400 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
           <button 
@@ -211,8 +213,8 @@ export default function AdminDashboard() {
             <div className="text-[10px] text-slate-400 mt-1">Manage tracking, container manifests, and delivery statuses.</div>
           </div>
           
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 min-w-[140px] md:w-64">
               <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input 
                 type="text"
@@ -222,6 +224,20 @@ export default function AdminDashboard() {
                 className="w-full pl-8 pr-3 py-1.5 bg-[#1e293b] border border-slate-800 rounded-md text-xs text-slate-200 focus:outline-none focus:border-slate-600 shadow-sm"
               />
             </div>
+            <button
+              onClick={() => {
+                if (filteredShipments.length === 0) {
+                  toast.error("No shipments to download");
+                  return;
+                }
+                generateAdminManifestPDF(filteredShipments);
+                toast.success("Downloading consolidated manifest PDF...");
+              }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium rounded-md border border-slate-700 transition-colors whitespace-nowrap shadow-sm"
+            >
+              <Download className="w-3 h-3 text-blue-400" />
+              Download PDF
+            </button>
             <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap">
               {uploading ? (
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>

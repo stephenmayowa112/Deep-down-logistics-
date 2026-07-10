@@ -57,12 +57,12 @@ export default function ClientDashboard() {
   return (
     <div className="h-full bg-[#0f172a] text-slate-300 flex flex-col font-sans overflow-hidden">
       <header className="h-14 border-b border-slate-800 flex items-center justify-between px-6 bg-[#0f172a] shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15">
             <Package className="w-4 h-4" />
           </div>
           <span className="font-semibold tracking-tight text-white">Deep Down Logistics</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-4">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-medium text-white">{dbUser?.shipping_mark}</div>
