@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Package, Search, Navigation, AlertCircle, ArrowLeft, MapPin } from "lucide-react";
 import { Shipment, TrackingUpdate } from "../types";
+import { getMockShipments, getMockUpdates } from "../lib/mockDb";
 
 export default function PublicTracking() {
   const { trackingId } = useParams();
@@ -20,7 +21,20 @@ export default function PublicTracking() {
         const data = await response.json();
         setShipment(data);
       } catch (err: any) {
-        setError(err.message);
+        // Fallback to local storage mock database for quick-testing/bypasses
+        const mocks = getMockShipments();
+        const found = mocks.find(s => s.tracking_id.toUpperCase() === trackingId?.toUpperCase());
+        if (found) {
+          const allUpdates = getMockUpdates();
+          const updates = allUpdates.filter(u => u.shipment_id === found.id);
+          setShipment({
+            ...found,
+            updates
+          });
+          setError("");
+        } else {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }

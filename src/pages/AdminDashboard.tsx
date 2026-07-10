@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
 import { collection, getDocs, doc, writeBatch, setDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
@@ -7,9 +7,10 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet } from "lucide-react";
 import { Shipment, ShipmentStatus } from "../types";
+import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
 
 export default function AdminDashboard() {
-  const { dbUser } = useAuth();
+  const { dbUser, isMock, setMockMode } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -17,10 +18,15 @@ export default function AdminDashboard() {
 
   const fetchShipments = async () => {
     try {
-      const q = query(collection(db, "shipments"), orderBy("created_at", "desc"));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
-      setShipments(data);
+      if (isMock) {
+        const data = getMockShipments();
+        setShipments(data);
+      } else {
+        const q = query(collection(db, "shipments"), orderBy("created_at", "desc"));
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
+        setShipments(data);
+      }
     } catch (error) {
       console.error("Error fetching shipments:", error);
       toast.error("Failed to load shipments");
@@ -38,6 +44,31 @@ export default function AdminDashboard() {
     if (!file) return;
 
     setUploading(true);
+    if (isMock) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          try {
+            const count = importMockManifest(results.data);
+            toast.success(`Successfully imported ${count} shipments`);
+            fetchShipments();
+          } catch (error) {
+            console.error("Import error:", error);
+            toast.error("Failed to import manifest");
+          } finally {
+            setUploading(false);
+            if (e.target) e.target.value = '';
+          }
+        },
+        error: (error) => {
+          toast.error("Error parsing CSV");
+          setUploading(false);
+        }
+      });
+      return;
+    }
+
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -97,6 +128,17 @@ export default function AdminDashboard() {
   };
 
   const updateStatus = async (shipmentId: string, newStatus: string) => {
+    if (isMock) {
+      try {
+        updateMockShipmentStatus(shipmentId, newStatus as any);
+        toast.success("Status updated");
+        fetchShipments();
+      } catch (error) {
+        toast.error("Failed to update status");
+      }
+      return;
+    }
+
     try {
       const batch = writeBatch(db);
       
@@ -154,7 +196,7 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-4">
           <span className="text-xs font-medium text-slate-400 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
           <button 
-            onClick={() => auth.signOut()}
+            onClick={() => isMock ? setMockMode(null) : auth.signOut()}
             className="text-slate-500 hover:text-slate-300 transition-colors"
           >
             <LogOut className="w-4 h-4" />

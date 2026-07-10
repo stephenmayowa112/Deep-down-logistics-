@@ -6,9 +6,10 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { LogOut, Package, ArrowRight, ExternalLink } from "lucide-react";
 import { Shipment } from "../types";
+import { getMockShipments } from "../lib/mockDb";
 
 export default function ClientDashboard() {
-  const { dbUser } = useAuth();
+  const { dbUser, isMock, setMockMode } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,16 +17,23 @@ export default function ClientDashboard() {
     const fetchMyShipments = async () => {
       if (!dbUser?.phone_number) return;
       try {
-        const q = query(
-          collection(db, "shipments"),
-          where("phone_number", "==", dbUser.phone_number)
-        );
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
-        
-        // Sort in memory since Firestore requires composite index for where + orderby
-        data.sort((a, b) => b.created_at - a.created_at);
-        setShipments(data);
+        if (isMock) {
+          const allMocks = getMockShipments();
+          const data = allMocks.filter(s => s.phone_number === dbUser.phone_number);
+          data.sort((a, b) => b.created_at - a.created_at);
+          setShipments(data);
+        } else {
+          const q = query(
+            collection(db, "shipments"),
+            where("phone_number", "==", dbUser.phone_number)
+          );
+          const snapshot = await getDocs(q);
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
+          
+          // Sort in memory since Firestore requires composite index for where + orderby
+          data.sort((a, b) => b.created_at - a.created_at);
+          setShipments(data);
+        }
       } catch (error) {
         console.error("Error fetching shipments:", error);
       } finally {
@@ -34,7 +42,7 @@ export default function ClientDashboard() {
     };
 
     fetchMyShipments();
-  }, [dbUser]);
+  }, [dbUser, isMock]);
 
   const getStatusColor = (status: string) => {
     if (status.includes("delivered")) return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
@@ -59,7 +67,7 @@ export default function ClientDashboard() {
             <div className="text-[10px] text-slate-500">{dbUser?.phone_number}</div>
           </div>
           <button 
-            onClick={() => auth.signOut()}
+            onClick={() => isMock ? setMockMode(null) : auth.signOut()}
             className="text-slate-500 hover:text-slate-300 transition-colors"
           >
             <LogOut className="w-4 h-4" />
