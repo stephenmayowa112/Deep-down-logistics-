@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Deep Down Logistics Portal",
+  "description": "A professional cargo tracking and manifest management system for air and sea freight forwarding from Guangzhou to Lagos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

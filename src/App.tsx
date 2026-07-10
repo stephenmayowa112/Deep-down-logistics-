@@ -6,6 +6,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import ClientDashboard from "./pages/ClientDashboard";
@@ -39,6 +40,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/track/:trackingId" element={<PublicTracking />} />
           <Route 
@@ -49,7 +51,7 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Toaster position="top-right" richColors />
       </BrowserRouter>
