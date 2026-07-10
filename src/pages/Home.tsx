@@ -210,15 +210,15 @@ export default function Home() {
               {/* Left Column: Headings & Tracking glass block */}
               <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-display font-extrabold text-white tracking-tight leading-tight">
-                  Sleek Global Logistics <br />
+                  Guangzhou to Lagos <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400">
-                    Refracted with Perfect Clarity
+                    Cargo Shipping Made Simple
                   </span>
                 </h1>
 
                 <p className="text-sm text-slate-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                  Consolidate, measure, and track air cargo or sea containers from our secured warehouse in Guangzhou 
-                  directly to Apapa port or our Lagos office hub. No hidden fees.
+                  Consolidate, measure, and track your air cargo or sea freight from our secure warehouse in Guangzhou 
+                  directly to our Lagos office and warehouse hubs. No hidden charges, zero clearance hassle.
                 </p>
 
                 {/* Tracking Card - Beautiful Glassmorphism */}
@@ -414,10 +414,10 @@ export default function Home() {
         <section id="services" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-white tracking-tight">
-              Elite Freight Logistics Services
+              Our Direct Cargo & Shipping Services
             </h2>
             <p className="mt-3 text-xs text-slate-500 max-w-lg mx-auto">
-              Our end-to-end global cargo network keeps your commercial inventory and personal goods moving safely.
+              Professional sea and air freight consolidation, custom clearance, and secure warehousing solutions tailored for Nigerian importers.
             </p>
           </div>
 
