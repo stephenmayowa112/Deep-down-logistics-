@@ -129,12 +129,60 @@ export default function AdminDashboard() {
     });
   };
 
+  // Fires the WhatsApp status notification via the backend route. This is
+  // intentionally "fire and forget" from the caller's perspective — a
+  // failure here (missing credentials, network issue, etc.) is logged but
+  // never blocks or rolls back the Firestore status update.
+  const notifyStatusByWhatsApp = (shipment: Shipment, status: string) => {
+    if (!shipment.phone_number) return;
+
+    const sendNow = () => {
+      fetch("/api/notify-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone_number: shipment.phone_number,
+          shipping_mark: shipment.shipping_mark,
+          tracking_id: shipment.tracking_id,
+          container_number: shipment.container_id,
+          ctn: shipment.ctn,
+          cbm: shipment.cbm,
+          freight_usd_per_cbm: shipment.freight_usd_per_cbm,
+          status,
+        }),
+      }).catch((error) => {
+        console.error("Failed to send WhatsApp status notification:", error);
+      });
+    };
+
+    // Give the admin a 5-second window to catch an accidental status change
+    // before the WhatsApp message actually goes out. Clicking "Undo" cancels
+    // the send entirely; letting the toast expire sends it as normal.
+    const timeoutId = setTimeout(sendNow, 5000);
+
+    toast(`WhatsApp update will be sent to ${shipment.shipping_mark || shipment.phone_number}`, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          clearTimeout(timeoutId);
+          toast.success("WhatsApp notification cancelled");
+        },
+      },
+    });
+  };
+
   const updateStatus = async (shipmentId: string, newStatus: string) => {
+    const shipment = shipments.find(s => s.id === shipmentId);
+
     if (isMock) {
       try {
         updateMockShipmentStatus(shipmentId, newStatus as any);
         toast.success("Status updated");
         fetchShipments();
+        if (shipment) {
+          notifyStatusByWhatsApp(shipment, newStatus);
+        }
       } catch (error) {
         toast.error("Failed to update status");
       }
@@ -161,6 +209,10 @@ export default function AdminDashboard() {
       await batch.commit();
       toast.success("Status updated");
       fetchShipments();
+
+      if (shipment) {
+        notifyStatusByWhatsApp(shipment, newStatus);
+      }
     } catch (error) {
       toast.error("Failed to update status");
     }
