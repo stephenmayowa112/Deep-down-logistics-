@@ -30,7 +30,8 @@ export default function Home() {
   const [height, setHeight] = useState<number>(40);
   const [cartons, setCartons] = useState<number>(8);
   const [freightType, setFreightType] = useState<"sea" | "air">("sea");
-  const [rate, setRate] = useState<number>(0);
+  const [rateUsd, setRateUsd] = useState<number>(0);
+  const [rateNgn, setRateNgn] = useState<number>(0);
 
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +53,13 @@ export default function Home() {
   const airVolumetricWeight = ((length * width * height) / 5000) * cartons; // Air division ratio standard
   const recommendedMode = calculatedCbm > 1.2 || cartons > 12 ? "Sea Freight" : "Air Freight";
   
-  const estimatedCost = freightType === "sea" 
-    ? calculatedCbm * rate 
-    : airVolumetricWeight * rate;
+  const estimatedCostUsd = freightType === "sea" 
+    ? calculatedCbm * rateUsd 
+    : airVolumetricWeight * rateUsd;
+
+  const estimatedCostNgn = freightType === "sea" 
+    ? calculatedCbm * rateNgn 
+    : airVolumetricWeight * rateNgn;
 
   return (
     <div className="min-h-screen bg-[#070b14] text-slate-300 font-sans flex flex-col selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
@@ -615,7 +620,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <div>
                       <label className="block text-[9px] font-semibold text-slate-400 mb-1.5 tracking-wider uppercase">Total Packages / Cartons</label>
                       <input
@@ -626,16 +631,30 @@ export default function Home() {
                         className="w-full bg-[#0d1323] border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[9px] font-semibold text-slate-400 mb-1.5 tracking-wider uppercase">Rate per {freightType === 'sea' ? 'CBM' : 'Kg'} ($)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={rate || ""}
-                        placeholder="e.g., 200"
-                        onChange={(e) => setRate(Math.max(0, parseFloat(e.target.value) || 0))}
-                        className="w-full bg-[#0d1323] border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                      />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[9px] font-semibold text-slate-400 mb-1.5 tracking-wider uppercase">Rate per {freightType === 'sea' ? 'CBM' : 'Kg'} ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={rateUsd || ""}
+                          placeholder="e.g., 200"
+                          onChange={(e) => setRateUsd(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-[#0d1323] border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-semibold text-slate-400 mb-1.5 tracking-wider uppercase">Rate per {freightType === 'sea' ? 'CBM' : 'Kg'} (₦)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={rateNgn || ""}
+                          placeholder="e.g., 300000"
+                          onChange={(e) => setRateNgn(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-[#0d1323] border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -681,9 +700,15 @@ export default function Home() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Estimated Cost:</span>
+                        <span className="text-slate-400">Est. Cost (USD):</span>
+                        <span className="text-blue-400 font-bold font-mono text-sm bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20">
+                          ${estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Est. Cost (NGN):</span>
                         <span className="text-emerald-400 font-bold font-mono text-sm bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
-                          ${estimatedCost.toFixed(2)}
+                          ₦{estimatedCostNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs pt-2.5 border-t border-white/10">

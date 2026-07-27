@@ -77,7 +77,7 @@ async function sendWhatsAppStatusUpdate(
   // WhatsApp requires E.164 format (digits only, with country code, no leading +/spaces/dashes).
   const toNumber = phoneNumber.replace(/[^\d]/g, "");
   const statusLabel = STATUS_LABELS[status] || status;
-  const freightLabel = formatFreight(cbm, freightUsdPerCbm);
+  const freightLabel = status === "ready_for_pickup" ? formatFreight(cbm, freightUsdPerCbm) : "Pending";
 
   try {
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {

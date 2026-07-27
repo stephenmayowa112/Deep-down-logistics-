@@ -118,10 +118,28 @@ export default function ClientDashboard() {
                     </span>
                   </div>
                   <h3 className="font-mono text-xs text-slate-200 mb-1">{shipment.tracking_id}</h3>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                    <span>{shipment.cbm} CBM</span>
-                    <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                    <span>{shipment.ctn} CTN</span>
+                  <div className="flex flex-col gap-1.5 mt-2">
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                      <span>{shipment.cbm} CBM</span>
+                      <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                      <span>{shipment.ctn} CTN</span>
+                    </div>
+                    {(shipment.freight_usd_per_cbm || shipment.clearing_naira_per_cbm) && (
+                      <div className="flex flex-col gap-1 text-[10px] bg-slate-800/50 p-2 rounded border border-slate-700/50 mt-1">
+                        {shipment.freight_usd_per_cbm && shipment.freight_usd_per_cbm > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Est. Freight (USD):</span>
+                            <span className="text-blue-400 font-semibold">${(shipment.cbm * shipment.freight_usd_per_cbm).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                        {shipment.clearing_naira_per_cbm && shipment.clearing_naira_per_cbm > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-400">Est. Clearing (NGN):</span>
+                            <span className="text-emerald-400 font-semibold">₦{(shipment.cbm * shipment.clearing_naira_per_cbm).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="border-t border-slate-800 bg-slate-900/30 p-3 flex justify-between items-center rounded-b-xl group-hover:bg-slate-900/50 transition-colors">
