@@ -218,6 +218,53 @@ export default function AdminDashboard() {
     }
   };
 
+  const updateContainerStatus = async (containerId: string, newStatus: string) => {
+    const shipmentsInContainer = shipments.filter(s => s.container_id === containerId);
+    if (shipmentsInContainer.length === 0) return;
+
+    if (isMock) {
+      try {
+        shipmentsInContainer.forEach(s => updateMockShipmentStatus(s.id, newStatus as any));
+        toast.success(`Updated ${shipmentsInContainer.length} shipments`);
+        fetchShipments();
+        shipmentsInContainer.forEach(s => notifyStatusByWhatsApp(s, newStatus));
+      } catch (error) {
+        toast.error("Failed to update container status");
+      }
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      
+      shipmentsInContainer.forEach(shipment => {
+        const shipmentRef = doc(db, "shipments", shipment.id);
+        batch.update(shipmentRef, { 
+          status: newStatus,
+          updated_at: Date.now()
+        });
+
+        const updateRef = doc(collection(db, "tracking_updates"));
+        batch.set(updateRef, {
+          shipment_id: shipment.id,
+          status: newStatus,
+          note: `Container status updated by Admin`,
+          created_at: Date.now()
+        });
+      });
+
+      await batch.commit();
+      toast.success(`Updated ${shipmentsInContainer.length} shipments`);
+      fetchShipments();
+
+      shipmentsInContainer.forEach(shipment => {
+        notifyStatusByWhatsApp(shipment, newStatus);
+      });
+    } catch (error) {
+      toast.error("Failed to update container status");
+    }
+  };
+
   const filteredShipments = shipments.filter(s => 
     s.tracking_id.toLowerCase().includes(search.toLowerCase()) ||
     s.shipping_mark.toLowerCase().includes(search.toLowerCase()) ||
@@ -330,50 +377,84 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  filteredShipments.map((shipment) => (
-                    <tr key={shipment.id} className="hover:bg-slate-800/50">
-                      <td className="px-4 py-3">
-                        <div className="font-mono text-slate-400">{shipment.tracking_id}</div>
-                        <div className="font-medium text-slate-200 mt-0.5">{shipment.shipping_mark}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-slate-300">{shipment.phone_number || "Unmatched"}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-slate-300">{shipment.cbm} CBM</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full border text-[10px] whitespace-nowrap ${getStatusColor(shipment.status)}`}>
-                          {shipment.status.replace(/_/g, " ").toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {shipment.status !== 'delivered' && (
-                            <button
-                              onClick={() => updateStatus(shipment.id, 'delivered')}
-                              className="text-emerald-500 hover:text-emerald-400 p-1 rounded hover:bg-emerald-500/10 transition-colors"
-                              title="Mark as Delivered"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
+                  Object.entries(
+                    filteredShipments.reduce((acc, shipment) => {
+                      const key = shipment.container_id || "Unassigned";
+                      if (!acc[key]) acc[key] = [];
+                      acc[key].push(shipment);
+                      return acc;
+                    }, {} as Record<string, Shipment[]>)
+                  ).map(([containerId, containerShipments]) => (
+                    <React.Fragment key={containerId}>
+                      <tr className="bg-slate-800/80 border-y border-slate-700/50">
+                        <td colSpan={4} className="px-4 py-2 font-medium text-slate-200">
+                          <div className="flex items-center gap-2">
+                            <Package className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Container: <span className="font-mono">{containerId}</span></span>
+                            <span className="text-[10px] text-slate-400 ml-2">({containerShipments.length} items)</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-right">
                           <select 
-                            value={shipment.status}
-                            onChange={(e) => updateStatus(shipment.id, e.target.value)}
-                            className="text-[10px] uppercase font-medium bg-[#0f172a] border border-slate-700 rounded-md px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            onChange={(e) => updateContainerStatus(containerId, e.target.value)}
+                            className="text-[10px] uppercase font-medium bg-[#1e293b] border border-slate-600 rounded-md px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            defaultValue=""
                           >
+                            <option value="" disabled>Update All To...</option>
                             {allStatuses.map(status => (
                               <option key={status} value={status}>
                                 {status.replace(/_/g, " ")}
                               </option>
                             ))}
                           </select>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {containerShipments.map((shipment) => (
+                        <tr key={shipment.id} className="hover:bg-slate-800/50">
+                          <td className="px-4 py-3">
+                            <div className="font-mono text-slate-400">{shipment.tracking_id}</div>
+                            <div className="font-medium text-slate-200 mt-0.5">{shipment.shipping_mark}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-slate-300">{shipment.phone_number || "Unmatched"}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-slate-300">{shipment.cbm} CBM</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] whitespace-nowrap ${getStatusColor(shipment.status)}`}>
+                              {shipment.status.replace(/_/g, " ").toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {shipment.status !== 'delivered' && (
+                                <button
+                                  onClick={() => updateStatus(shipment.id, 'delivered')}
+                                  className="text-emerald-500 hover:text-emerald-400 p-1 rounded hover:bg-emerald-500/10 transition-colors"
+                                  title="Mark as Delivered"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                              )}
+                              <select 
+                                value={shipment.status}
+                                onChange={(e) => updateStatus(shipment.id, e.target.value)}
+                                className="text-[10px] uppercase font-medium bg-[#0f172a] border border-slate-700 rounded-md px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              >
+                                {allStatuses.map(status => (
+                                  <option key={status} value={status}>
+                                    {status.replace(/_/g, " ")}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
