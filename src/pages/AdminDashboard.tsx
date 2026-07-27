@@ -6,7 +6,7 @@ import { collection, getDocs, doc, writeBatch, setDoc, query, orderBy, serverTim
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download } from "lucide-react";
+import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle } from "lucide-react";
 import { Shipment, ShipmentStatus } from "../types";
 import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
 import { generateAdminManifestPDF } from "../utils/pdfGenerator";
@@ -350,17 +350,28 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <select 
-                          value={shipment.status}
-                          onChange={(e) => updateStatus(shipment.id, e.target.value)}
-                          className="text-[10px] uppercase font-medium bg-[#0f172a] border border-slate-700 rounded-md px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
-                        >
-                          {allStatuses.map(status => (
-                            <option key={status} value={status}>
-                              {status.replace(/_/g, " ")}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex items-center justify-end gap-2">
+                          {shipment.status !== 'delivered' && (
+                            <button
+                              onClick={() => updateStatus(shipment.id, 'delivered')}
+                              className="text-emerald-500 hover:text-emerald-400 p-1 rounded hover:bg-emerald-500/10 transition-colors"
+                              title="Mark as Delivered"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                          <select 
+                            value={shipment.status}
+                            onChange={(e) => updateStatus(shipment.id, e.target.value)}
+                            className="text-[10px] uppercase font-medium bg-[#0f172a] border border-slate-700 rounded-md px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          >
+                            {allStatuses.map(status => (
+                              <option key={status} value={status}>
+                                {status.replace(/_/g, " ")}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
                     </tr>
                   ))
