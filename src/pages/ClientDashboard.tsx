@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { LogOut, Package, ArrowRight, ExternalLink, Download, FileText } from "lucide-react";
 import { Shipment } from "../types";
 import { getMockShipments } from "../lib/mockDb";
-import { generateClientManifestPDF, generateConsignmentReceiptPDF } from "../utils/pdfGenerator";
+import { generateClientManifestPDF } from "../utils/pdfGenerator";
 import { toast } from "sonner";
 
 export default function ClientDashboard() {
@@ -151,7 +151,7 @@ export default function ClientDashboard() {
                   </Link>
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => generateConsignmentReceiptPDF(shipment)}
+                      onClick={() => generateClientManifestPDF(shipment.shipping_mark || "UNMARKED", shipment.phone_number || "", [shipment])}
                       className="text-slate-600 hover:text-blue-400 transition-colors flex items-center gap-1"
                       title="Download PDF Receipt / Note"
                     >
