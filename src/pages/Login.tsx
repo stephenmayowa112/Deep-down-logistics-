@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { auth, db } from "../lib/firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -28,6 +29,10 @@ export default function Login() {
   if (user && !dbUser) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
+        <Helmet>
+          <title>Complete Profile - Deep Down Logistics</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
         {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
         <div 
           className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
@@ -167,6 +172,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
+      <Helmet>
+        <title>Login / Register - Deep Down Logistics</title>
+        <meta name="description" content="Access your personalized client dashboard at Deep Down Logistics to manage manifests, track your consolidated cargo, and estimate costs." />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
       {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
       <div 
         className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 

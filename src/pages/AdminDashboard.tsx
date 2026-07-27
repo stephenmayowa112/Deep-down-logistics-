@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
@@ -288,6 +289,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="h-full bg-slate-50 text-slate-700 flex flex-col font-sans overflow-hidden">
+      <Helmet>
+        <title>Admin Dashboard - Deep Down Logistics</title>
+        <meta name="robots" content="noindex" />
+      </Helmet>
       <header className="h-14 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50 shrink-0">
         <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15">

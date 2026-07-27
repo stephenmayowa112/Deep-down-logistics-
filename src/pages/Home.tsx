@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "motion/react";
+import { Helmet } from "react-helmet-async";
 import { 
   Package, 
   Search, 
@@ -63,6 +64,31 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-700 font-sans flex flex-col selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
+      <Helmet>
+        <title>Deep Down Logistics - China to Lagos Air & Ocean Cargo Tracking</title>
+        <meta name="description" content="Deep Down Logistics provides express air cargo and economical ocean freight from Guangzhou, China to Lagos, Nigeria. Track your cargo, view shipping manifests, and manage container logistics live." />
+        <meta name="keywords" content="China to Nigeria shipping, Guangzhou to Lagos cargo, air freight Lagos, ocean container shipping Apapa, cargo tracking, shipping manifest, CBM calculator, logistics portal" />
+        <link rel="canonical" href="https://ais-pre-3sakkjp7mhx3nmrgvewgs5-556021110533.europe-west2.run.app/" />
+        <script type="application/ld+json">
+          {`
+            {
+              "@context": "https://schema.org",
+              "@type": "LogisticsService",
+              "name": "Deep Down Logistics",
+              "image": "https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80",
+              "description": "Express air cargo and economical ocean freight from Guangzhou, China to Lagos, Nigeria.",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "B77 PLAZA A.P.T. TRADEFAIR INTERNATIONAL MARKET, BADAGRY EXPRESS WAY",
+                "addressLocality": "Lagos",
+                "addressCountry": "NG"
+              },
+              "telephone": "+86 13048001610",
+              "url": "https://ais-pre-3sakkjp7mhx3nmrgvewgs5-556021110533.europe-west2.run.app/"
+            }
+          `}
+        </script>
+      </Helmet>
       
       {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
       <div 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { format } from "date-fns";
 import { Package, Search, Navigation, AlertCircle, ArrowLeft, MapPin, Box, Eye, Calendar, UserCheck } from "lucide-react";
 import { Shipment, TrackingUpdate } from "../types";
@@ -93,6 +94,11 @@ export default function PublicTracking() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-700 flex flex-col font-sans relative overflow-x-hidden">
+      <Helmet>
+        <title>{trackingId ? `Tracking ${trackingId.toUpperCase()} - Deep Down Logistics` : 'Track Cargo - Deep Down Logistics'}</title>
+        <meta name="description" content={`Track the live status of your cargo from Guangzhou to Lagos. Real-time updates for shipment ${trackingId || ''}.`} />
+        <meta name="robots" content="noindex" />
+      </Helmet>
       
       {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
       <div 
