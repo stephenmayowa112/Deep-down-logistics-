@@ -148,6 +148,7 @@ export default function AdminDashboard() {
           ctn: shipment.ctn,
           cbm: shipment.cbm,
           freight_usd_per_cbm: shipment.freight_usd_per_cbm,
+          clearing_naira_per_cbm: shipment.clearing_naira_per_cbm,
           status,
         }),
       }).catch((error) => {
@@ -276,7 +277,7 @@ export default function AdminDashboard() {
     if (status.includes("cleared") || status.includes("ready")) return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
     if (status.includes("transit")) return "bg-blue-500/10 text-blue-400 border-blue-500/20";
     if (status.includes("received_china")) return "bg-orange-500/10 text-orange-500 border-orange-500/20";
-    return "bg-slate-700 text-slate-400 border-transparent";
+    return "bg-slate-200 text-slate-700 border-transparent";
   };
 
   const allStatuses: ShipmentStatus[] = [
@@ -286,19 +287,19 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="h-full bg-[#0f172a] text-slate-300 flex flex-col font-sans overflow-hidden">
-      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-6 bg-[#0f172a] shrink-0">
+    <div className="h-full bg-slate-50 text-slate-700 flex flex-col font-sans overflow-hidden">
+      <header className="h-14 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50 shrink-0">
         <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15">
             <Package className="w-4 h-4" />
           </div>
-          <span className="font-semibold tracking-tight text-white">Deep Down Logistics</span>
+          <span className="font-semibold tracking-tight text-slate-900">Deep Down Logistics</span>
         </Link>
         <div className="flex items-center gap-4">
-          <span className="text-xs font-medium text-slate-400 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
+          <span className="text-xs font-medium text-slate-600 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
           <button 
             onClick={() => isMock ? setMockMode(null) : auth.signOut()}
-            className="text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-slate-500 hover:text-slate-700 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -308,8 +309,8 @@ export default function AdminDashboard() {
       <main className="flex-1 flex flex-col overflow-hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0">
           <div>
-            <h1 className="text-sm font-medium text-white">Overview</h1>
-            <div className="text-[10px] text-slate-400 mt-1">Manage tracking, container manifests, and delivery statuses.</div>
+            <h1 className="text-sm font-medium text-slate-900">Overview</h1>
+            <div className="text-[10px] text-slate-600 mt-1">Manage tracking, container manifests, and delivery statuses.</div>
           </div>
           
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -320,7 +321,7 @@ export default function AdminDashboard() {
                 placeholder="Search by Mark, ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-[#1e293b] border border-slate-800 rounded-md text-xs text-slate-200 focus:outline-none focus:border-slate-600 shadow-sm"
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:border-slate-600 shadow-sm"
               />
             </div>
             <button
@@ -332,12 +333,12 @@ export default function AdminDashboard() {
                 generateAdminManifestPDF(filteredShipments);
                 toast.success("Downloading consolidated manifest PDF...");
               }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium rounded-md border border-slate-700 transition-colors whitespace-nowrap shadow-sm"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-medium rounded-md border border-slate-300 transition-colors whitespace-nowrap shadow-sm"
             >
               <Download className="w-3 h-3 text-blue-400" />
               Download PDF
             </button>
-            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-900 text-xs font-medium rounded-md transition-colors whitespace-nowrap">
               {uploading ? (
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
               ) : (
@@ -349,11 +350,11 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1e293b] rounded-xl border border-slate-800 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-900/50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                <tr className="border-b border-slate-800">
+              <thead className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+                <tr className="border-b border-slate-200">
                   <th className="px-4 py-3">ID / Mark</th>
                   <th className="px-4 py-3">Client Contact</th>
                   <th className="px-4 py-3">Volume</th>
@@ -386,18 +387,18 @@ export default function AdminDashboard() {
                     }, {} as Record<string, Shipment[]>)
                   ).map(([containerId, containerShipments]) => (
                     <React.Fragment key={containerId}>
-                      <tr className="bg-slate-800/80 border-y border-slate-700/50">
-                        <td colSpan={4} className="px-4 py-2 font-medium text-slate-200">
+                      <tr className="bg-white/80 border-y border-slate-300/50">
+                        <td colSpan={4} className="px-4 py-2 font-medium text-slate-800">
                           <div className="flex items-center gap-2">
                             <Package className="w-3.5 h-3.5 text-blue-400" />
                             <span>Container: <span className="font-mono">{containerId}</span></span>
-                            <span className="text-[10px] text-slate-400 ml-2">({containerShipments.length} items)</span>
+                            <span className="text-[10px] text-slate-600 ml-2">({(containerShipments as Shipment[]).length} items)</span>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-right">
                           <select 
                             onChange={(e) => updateContainerStatus(containerId, e.target.value)}
-                            className="text-[10px] uppercase font-medium bg-[#1e293b] border border-slate-600 rounded-md px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            className="text-[10px] uppercase font-medium bg-white border border-slate-600 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                             defaultValue=""
                           >
                             <option value="" disabled>Update All To...</option>
@@ -409,18 +410,18 @@ export default function AdminDashboard() {
                           </select>
                         </td>
                       </tr>
-                      {containerShipments.map((shipment) => (
-                        <tr key={shipment.id} className="hover:bg-slate-800/50">
+                      {(containerShipments as Shipment[]).map((shipment) => (
+                        <tr key={shipment.id} className="hover:bg-white/50">
                           <td className="px-4 py-3">
-                            <div className="font-mono text-slate-400">{shipment.tracking_id}</div>
-                            <div className="font-medium text-slate-200 mt-0.5">{shipment.shipping_mark}</div>
+                            <div className="font-mono text-slate-600">{shipment.tracking_id}</div>
+                            <div className="font-medium text-slate-800 mt-0.5">{shipment.shipping_mark}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-slate-300">{shipment.phone_number || "Unmatched"}</div>
+                            <div className="text-slate-700">{shipment.phone_number || "Unmatched"}</div>
                             <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-slate-300">{shipment.cbm} CBM</div>
+                            <div className="text-slate-700">{shipment.cbm} CBM</div>
                             <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
                           </td>
                           <td className="px-4 py-3">
@@ -442,7 +443,7 @@ export default function AdminDashboard() {
                               <select 
                                 value={shipment.status}
                                 onChange={(e) => updateStatus(shipment.id, e.target.value)}
-                                className="text-[10px] uppercase font-medium bg-[#0f172a] border border-slate-700 rounded-md px-2 py-1 text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                className="text-[10px] uppercase font-medium bg-slate-50 border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
                               >
                                 {allStatuses.map(status => (
                                   <option key={status} value={status}>

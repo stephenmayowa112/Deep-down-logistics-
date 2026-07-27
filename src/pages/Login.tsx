@@ -23,11 +23,11 @@ export default function Login() {
     }
   }, [user, dbUser, authLoading, navigate]);
 
-  if (authLoading) return <div className="h-screen bg-[#070b14]" />;
+  if (authLoading) return <div className="h-screen bg-slate-50" />;
 
   if (user && !dbUser) {
     return (
-      <div className="min-h-screen bg-[#070b14] flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
         {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
         <div 
           className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
@@ -42,7 +42,7 @@ export default function Login() {
             <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
               <Package className="text-white w-6 h-6" />
             </div>
-            <h2 className="mt-2 text-center text-xl font-display font-bold tracking-tight text-white group-hover:text-blue-400 transition-colors">
+            <h2 className="mt-2 text-center text-xl font-display font-bold tracking-tight text-slate-900 group-hover:text-blue-400 transition-colors">
               Complete Your Profile
             </h2>
           </Link>
@@ -79,7 +79,7 @@ export default function Login() {
               )}
               
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Phone Number</label>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Phone Number</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Phone className="w-3.5 h-3.5 text-slate-500" />
@@ -89,13 +89,13 @@ export default function Login() {
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Shipping Mark</label>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Shipping Mark</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Tag className="w-3.5 h-3.5 text-slate-500" />
@@ -106,7 +106,7 @@ export default function Login() {
                     value={shippingMark}
                     onChange={(e) => setShippingMark(e.target.value)}
                     placeholder="e.g. KENNEDY"
-                    className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
+                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
                   />
                 </div>
               </div>
@@ -166,7 +166,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans overflow-auto relative">
       {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
       <div 
         className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
@@ -181,7 +181,7 @@ export default function Login() {
           <div className="w-12 h-12 clay-card-blue flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
             <Package className="text-white w-6 h-6" />
           </div>
-          <h2 className="mt-2 text-center text-xl font-display font-extrabold tracking-tight text-white group-hover:text-blue-400 transition-colors">
+          <h2 className="mt-2 text-center text-xl font-display font-extrabold tracking-tight text-slate-900 group-hover:text-blue-400 transition-colors">
             Deep Down Logistics
           </h2>
         </Link>
@@ -200,7 +200,7 @@ export default function Login() {
             )}
             
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Email address</label>
+              <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="w-3.5 h-3.5 text-slate-500" />
@@ -210,7 +210,7 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                  className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -218,7 +218,7 @@ export default function Login() {
             {!isLogin && (
               <>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Phone Number</label>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Phone Number</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Phone className="w-3.5 h-3.5 text-slate-500" />
@@ -228,12 +228,12 @@ export default function Login() {
                       required
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Shipping Mark</label>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Shipping Mark</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Tag className="w-3.5 h-3.5 text-slate-500" />
@@ -244,7 +244,7 @@ export default function Login() {
                       value={shippingMark}
                       onChange={(e) => setShippingMark(e.target.value)}
                       placeholder="e.g. SKYFALL"
-                      className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
+                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
                     />
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function Login() {
             )}
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Password</label>
+              <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="w-3.5 h-3.5 text-slate-500" />
@@ -262,7 +262,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2 bg-[#0d1323] border border-white/5 rounded-lg text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                  className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="mt-8 pt-5 border-t border-white/5 text-center">
+          <div className="mt-8 pt-5 border-t border-slate-100 text-center">
             <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-3.5 flex items-center justify-center gap-1">
               <Shield className="w-3.5 h-3.5 text-blue-500/75" />
               Developer Bypass Console
@@ -300,7 +300,7 @@ export default function Login() {
                   setMockMode("admin");
                   navigate("/dashboard");
                 }}
-                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-slate-800"
+                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-white"
               >
                 Admin Gateway
               </button>
@@ -310,7 +310,7 @@ export default function Login() {
                   setMockMode("client");
                   navigate("/dashboard");
                 }}
-                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-slate-800"
+                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-white"
               >
                 Client Gateway
               </button>

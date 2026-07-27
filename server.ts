@@ -44,6 +44,7 @@ interface StatusNotificationDetails {
   ctn: number | string;
   cbm: number | string;
   freightUsdPerCbm?: number;
+  clearingNairaPerCbm?: number;
   status: string;
 }
 
@@ -52,19 +53,30 @@ interface StatusNotificationDetails {
 // receipt never disagree. Falls back to a friendly placeholder when no rate
 // has been entered for the shipment yet (mirrors the PDF's `if (freightRate > 0)`
 // check, which simply omits the fees section in that case).
-function formatFreight(cbm: number | string, freightUsdPerCbm?: number): string {
+function formatFreight(cbm: number | string, freightUsdPerCbm?: number, clearingNairaPerCbm?: number): string {
   const cbmValue = typeof cbm === "string" ? parseFloat(cbm) : cbm;
-  if (!freightUsdPerCbm || freightUsdPerCbm <= 0 || !cbmValue || isNaN(cbmValue)) {
+  
+  if (!cbmValue || isNaN(cbmValue)) {
     return "Not yet quoted";
   }
-  const total = cbmValue * freightUsdPerCbm;
-  return `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const parts = [];
+  if (freightUsdPerCbm && freightUsdPerCbm > 0) {
+    const totalUsd = cbmValue * freightUsdPerCbm;
+    parts.push(`\${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+  if (clearingNairaPerCbm && clearingNairaPerCbm > 0) {
+    const totalNgn = cbmValue * clearingNairaPerCbm;
+    parts.push(`NGN ${totalNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  }
+
+  return parts.length > 0 ? parts.join(" + ") : "Not yet quoted";
 }
 
 async function sendWhatsAppStatusUpdate(
   details: StatusNotificationDetails
 ): Promise<{ ok: boolean; error?: string }> {
-  const { phoneNumber, shippingMark, trackingId, containerNumber, ctn, cbm, freightUsdPerCbm, status } = details;
+  const { phoneNumber, shippingMark, trackingId, containerNumber, ctn, cbm, freightUsdPerCbm, clearingNairaPerCbm, status } = details;
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "shipment_status_update";
@@ -77,7 +89,7 @@ async function sendWhatsAppStatusUpdate(
   // WhatsApp requires E.164 format (digits only, with country code, no leading +/spaces/dashes).
   const toNumber = phoneNumber.replace(/[^\d]/g, "");
   const statusLabel = STATUS_LABELS[status] || status;
-  const freightLabel = status === "ready_for_pickup" ? formatFreight(cbm, freightUsdPerCbm) : "Pending";
+  const freightLabel = status === "ready_for_pickup" ? formatFreight(cbm, freightUsdPerCbm, clearingNairaPerCbm) : "Pending";
 
   try {
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
@@ -135,7 +147,7 @@ async function startServer() {
   // Fire-and-forget from the frontend's perspective: failures here should
   // never block the underlying Firestore status update.
   app.post("/api/notify-status", async (req, res) => {
-    const { phone_number, shipping_mark, tracking_id, container_number, ctn, cbm, freight_usd_per_cbm, status } = req.body || {};
+    const { phone_number, shipping_mark, tracking_id, container_number, ctn, cbm, freight_usd_per_cbm, clearing_naira_per_cbm, status } = req.body || {};
 
     if (!phone_number || !tracking_id || !status) {
       return res.status(400).json({ error: "phone_number, tracking_id and status are required" });
@@ -149,6 +161,7 @@ async function startServer() {
       ctn,
       cbm,
       freightUsdPerCbm: freight_usd_per_cbm,
+      clearingNairaPerCbm: clearing_naira_per_cbm,
       status,
     });
 
