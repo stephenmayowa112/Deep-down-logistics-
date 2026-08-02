@@ -29,6 +29,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /tracking_updates/{updateId} {
       allow read: if true; // We fetch these by server for public tracking or they are fetched by client
       allow write: if isAdmin();

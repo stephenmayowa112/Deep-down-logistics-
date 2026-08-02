@@ -14,7 +14,8 @@ const formatStatus = (status: string): string => {
 export function generateClientManifestPDF(
   shippingMark: string,
   phoneNumber: string,
-  shipments: Shipment[]
+  shipments: Shipment[],
+  settings?: any
 ) {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -97,7 +98,7 @@ export function generateClientManifestPDF(
   doc.text(`DEPARTURE DATE: _________________________`, 195, 81, { align: "right" });
   doc.text(`TIME STAMP: ${format(new Date(), "hh:mm:ss a")}`, 195, 86, { align: "right" });
   doc.text(`TOTAL FREIGHT (USD): ${totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '_________________________'}`, 195, 91, { align: "right" });
-  doc.text(`EXCHANGE RATE (USD/NGN): _________________________`, 195, 96, { align: "right" });
+  doc.text(`EXCHANGE RATE (USD/NGN): ${settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toLocaleString() : '_________________________'}`, 195, 96, { align: "right" });
 
 
 

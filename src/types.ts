@@ -51,3 +51,11 @@ export interface TrackingUpdate {
   note: string;
   created_at: number;
 }
+
+export interface PricingSettings {
+  exchangeRateUsdNgn: number;
+  seaFreightRateUsd: number;
+  seaClearingRateNgn: number;
+  airFreightRateUsd: number;
+  airClearingRateNgn: number;
+}

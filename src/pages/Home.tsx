@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { Helmet } from "react-helmet-async";
+import { useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import { 
   Package, 
   Search, 
@@ -33,6 +36,50 @@ export default function Home() {
   const [freightType, setFreightType] = useState<"sea" | "air">("sea");
   const [rateUsd, setRateUsd] = useState<number>(0);
   const [rateNgn, setRateNgn] = useState<number>(0);
+  const [settings, setSettings] = useState<any>({ exchangeRateUsdNgn: 1500, seaFreightRateUsd: 180, seaClearingRateNgn: 300000, airFreightRateUsd: 8, airClearingRateNgn: 15000 });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, "settings", "pricing"));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSettings(data);
+          if (freightType === "sea") {
+            setRateUsd(data.seaFreightRateUsd);
+            setRateNgn(data.seaClearingRateNgn);
+          } else {
+            setRateUsd(data.airFreightRateUsd);
+            setRateNgn(data.airClearingRateNgn);
+          }
+        } else {
+          const saved = localStorage.getItem("ddl_mock_settings");
+          if (saved) {
+             const data = JSON.parse(saved);
+             setSettings(data);
+             if (freightType === "sea") {
+               setRateUsd(data.seaFreightRateUsd);
+               setRateNgn(data.seaClearingRateNgn);
+             } else {
+               setRateUsd(data.airFreightRateUsd);
+               setRateNgn(data.airClearingRateNgn);
+             }
+          }
+        }
+      } catch (err) {}
+    };
+    fetchSettings();
+  }, []);
+
+  useEffect(() => {
+    if (freightType === "sea") {
+      setRateUsd(settings.seaFreightRateUsd);
+      setRateNgn(settings.seaClearingRateNgn);
+    } else {
+      setRateUsd(settings.airFreightRateUsd);
+      setRateNgn(settings.airClearingRateNgn);
+    }
+  }, [freightType, settings]);
 
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();

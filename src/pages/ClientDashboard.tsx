@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { LogOut, Package, ArrowRight, ExternalLink, Download, FileText } from "lucide-react";
@@ -14,7 +14,26 @@ import { toast } from "sonner";
 export default function ClientDashboard() {
   const { dbUser, isMock, setMockMode } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        if (!isMock) {
+          const docSnap = await getDoc(doc(db, "settings", "pricing"));
+          if (docSnap.exists()) {
+            setSettings(docSnap.data());
+          }
+        } else {
+          const saved = localStorage.getItem("ddl_mock_settings");
+          if (saved) setSettings(JSON.parse(saved));
+        }
+      } catch (err) {}
+    };
+    fetchSettings();
+  }, [isMock]);
 
   useEffect(() => {
     const fetchMyShipments = async () => {
@@ -90,7 +109,7 @@ export default function ClientDashboard() {
           </div>
           {shipments.length > 0 && (
             <button
-              onClick={() => generateClientManifestPDF(dbUser?.shipping_mark || "UNMARKED", dbUser?.phone_number || "", shipments)}
+              onClick={() => generateClientManifestPDF(dbUser?.shipping_mark || "UNMARKED", dbUser?.phone_number || "", shipments, settings)}
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto hover:scale-[1.02] active:scale-[0.98]"
             >
               <Download className="w-3.5 h-3.5" />
@@ -156,7 +175,7 @@ export default function ClientDashboard() {
                   </Link>
                   <div className="flex items-center gap-3">
                     <button 
-                      onClick={() => generateClientManifestPDF(shipment.shipping_mark || "UNMARKED", shipment.phone_number || "", [shipment])}
+                      onClick={() => generateClientManifestPDF(shipment.shipping_mark || "UNMARKED", shipment.phone_number || "", [shipment], settings)}
                       className="text-slate-600 hover:text-blue-400 transition-colors flex items-center gap-1"
                       title="Download PDF Receipt / Note"
                     >
