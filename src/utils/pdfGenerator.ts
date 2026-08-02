@@ -15,7 +15,8 @@ export function generateClientManifestPDF(
   shippingMark: string,
   phoneNumber: string,
   shipments: Shipment[],
-  settings?: any
+  settings?: any,
+  options?: { loadedDate?: string; departureDate?: string; exchangeRate?: string }
 ) {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -94,11 +95,11 @@ export function generateClientManifestPDF(
 
   doc.text(`CONTAINER NUMBER NO: ${containerNo}`, 195, 66, { align: "right" });
   doc.text(`DATE: ${dateStr}`, 195, 71, { align: "right" });
-  doc.text(`LOADED DATE: _________________________`, 195, 76, { align: "right" });
-  doc.text(`DEPARTURE DATE: _________________________`, 195, 81, { align: "right" });
+  doc.text(`LOADED DATE: ${options?.loadedDate || "_________________________"}`, 195, 76, { align: "right" });
+  doc.text(`DEPARTURE DATE: ${options?.departureDate || "_________________________"}`, 195, 81, { align: "right" });
   doc.text(`TIME STAMP: ${format(new Date(), "hh:mm:ss a")}`, 195, 86, { align: "right" });
   doc.text(`TOTAL FREIGHT (USD): ${totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '_________________________'}`, 195, 91, { align: "right" });
-  doc.text(`EXCHANGE RATE (USD/NGN): ${settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toLocaleString() : '_________________________'}`, 195, 96, { align: "right" });
+  doc.text(`EXCHANGE RATE (USD/NGN): ${options?.exchangeRate || (settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toLocaleString() : "_________________________")}`, 195, 96, { align: "right" });
 
 
 
