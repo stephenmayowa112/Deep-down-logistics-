@@ -11,21 +11,6 @@ import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet,
 import { Shipment, ShipmentStatus } from "../types";
 import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
 import { generateAdminManifestPDF } from "../utils/pdfGenerator";
-import { generatePackingListImage } from "../utils/packingListImageGenerator";
-
-// Strips the "data:image/png;base64," prefix FileReader adds, since the
-// backend only wants the raw base64 payload to hand to Buffer.from().
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1] || "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 export default function AdminDashboard() {
   const { dbUser, isMock, setMockMode } = useAuth();
@@ -145,38 +130,31 @@ export default function AdminDashboard() {
     });
   };
 
-  // Fires the WhatsApp "Shipped" notification via the backend route. This is
+  // Fires the WhatsApp status notification via the backend route. This is
   // intentionally "fire and forget" from the caller's perspective — a
   // failure here (missing credentials, network issue, etc.) is logged but
-  // never blocks or rolls back the Firestore status update. Only the
-  // "shipped" status sends anything; the packing-list image (rendered here
-  // and uploaded to WhatsApp) replaces the old text-only template message.
+  // never blocks or rolls back the Firestore status update.
   const notifyStatusByWhatsApp = (shipment: Shipment, status: string) => {
     if (!shipment.phone_number) return;
-    if (status !== "shipped") return;
 
-    const sendNow = async () => {
-      try {
-        const imageBlob = await generatePackingListImage(shipment);
-        const imageBase64 = await blobToBase64(imageBlob);
-
-        const response = await fetch("/api/send-packing-list-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone_number: shipment.phone_number,
-            tracking_id: shipment.tracking_id,
-            image_base64: imageBase64,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          console.error("Failed to send WhatsApp packing list image:", data.error || response.statusText);
-        }
-      } catch (error) {
-        console.error("Failed to send WhatsApp packing list image:", error);
-      }
+    const sendNow = () => {
+      fetch("/api/notify-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone_number: shipment.phone_number,
+          shipping_mark: shipment.shipping_mark,
+          tracking_id: shipment.tracking_id,
+          container_number: shipment.container_id,
+          ctn: shipment.ctn,
+          cbm: shipment.cbm,
+          freight_usd_per_cbm: shipment.freight_usd_per_cbm,
+          clearing_naira_per_cbm: shipment.clearing_naira_per_cbm,
+          status,
+        }),
+      }).catch((error) => {
+        console.error("Failed to send WhatsApp status notification:", error);
+      });
     };
 
     // Give the admin a 5-second window to catch an accidental status change

@@ -60,9 +60,6 @@ export function generateClientManifestPDF(
   doc.text("B77 PLAZA A.P.T. TRADEFAIR INTERNATIONAL", 15, 76);
   doc.text("MARKET, BADAGRY EXPRESS WAY, LAGOS", 15, 81);
 
-  doc.text(`CONTAINER NUMBER NO: ${containerNo}`, 195, 76, { align: "right" });
-  doc.text(`DATE: ${dateStr}`, 195, 81, { align: "right" });
-
   let totalFreightUsd = 0;
   let totalClearingNaira = 0;
 
@@ -94,8 +91,19 @@ export function generateClientManifestPDF(
     ""
   ]);
 
+  doc.text(`CONTAINER NUMBER NO: ${containerNo}`, 195, 66, { align: "right" });
+  doc.text(`DATE: ${dateStr}`, 195, 71, { align: "right" });
+  doc.text(`LOADED DATE: _________________________`, 195, 76, { align: "right" });
+  doc.text(`DEPARTURE DATE: _________________________`, 195, 81, { align: "right" });
+  doc.text(`TIME STAMP: ${format(new Date(), "hh:mm:ss a")}`, 195, 86, { align: "right" });
+  doc.text(`TOTAL FREIGHT (USD): ${totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '_________________________'}`, 195, 91, { align: "right" });
+  doc.text(`EXCHANGE RATE (USD/NGN): _________________________`, 195, 96, { align: "right" });
+
+
+
+
   autoTable(doc, {
-    startY: 88,
+    startY: 105,
     head: [["SHIPPING MARK", "DESCRIPTION", "QTN\n(CTN)", "CBM", "FREIGHT\n(USD/CBM)", "CLEARING\n(NAIRA/CBM)", "REMARK"]],
     body: tableRows,
     theme: "plain",
