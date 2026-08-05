@@ -464,7 +464,7 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-xl border border-slate-200 flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50/50 text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+              <thead className="bg-white text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                 <tr className="border-b border-slate-200">
                   <th className="px-4 py-3">ID / Mark</th>
                   <th className="px-4 py-3">Client Contact</th>
