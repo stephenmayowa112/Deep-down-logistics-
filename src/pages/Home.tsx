@@ -110,7 +110,7 @@ export default function Home() {
     : airVolumetricWeight * rateNgn;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-700 font-sans flex flex-col selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-blue-50 text-slate-700 font-sans flex flex-col selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
       <Helmet>
         <title>Deep Down Logistics - China to Lagos Air & Ocean Cargo Tracking</title>
         <meta name="description" content="Deep Down Logistics provides express air cargo and economical ocean freight from Guangzhou, China to Lagos, Nigeria. Track your cargo, view shipping manifests, and manage container logistics live." />
@@ -148,7 +148,7 @@ export default function Home() {
       <div className="absolute bottom-[10%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/5 blur-[110px] pointer-events-none liquid-blob-3" />
 
       {/* Navigation Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-50/75 border-b border-slate-100 transition-all">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-blue-50/90 border-b border-blue-100 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
             {/* Claymorphic icon container */}
@@ -199,7 +199,7 @@ export default function Home() {
       <main className="flex-grow relative z-10">
         
         {/* Banner Announcement & Search Panel */}
-        <section className="relative pt-12 pb-20 sm:pb-28 overflow-hidden">
+        <section className="relative pt-12 pb-20 sm:pb-28 overflow-hidden bg-blue-100">
           
           {/* BACKGROUND MOTION NETWORK PATTERNS */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
@@ -294,7 +294,7 @@ export default function Home() {
               <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-display font-extrabold text-slate-900 tracking-tight leading-tight">
                   Guangzhou to Lagos <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400">
+                  <span className="text-blue-700">
                     Cargo Shipping Made Simple
                   </span>
                 </h1>
@@ -412,7 +412,7 @@ export default function Home() {
                         referrerPolicy="no-referrer"
                       />
                       {/* High-end linear and radial vignette overlay to blend edges nicely */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/25 to-transparent" />
+                      <div className="absolute inset-0 bg-blue-100/10 mix-blend-overlay" />
                       
                       {/* Live overlay stats in the image */}
                       <div className="absolute bottom-5 left-5 right-5 space-y-2">
@@ -470,7 +470,7 @@ export default function Home() {
         </section>
 
         {/* Feature Highlights Grid */}
-        <section className="py-8 bg-white/2 border-y border-slate-100 backdrop-blur-md">
+        <section className="py-8 bg-blue-50 border-y border-blue-100 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
               <div className="p-4 rounded-2xl bg-white/[0.01] border border-white/[0.02]">
@@ -515,7 +515,7 @@ export default function Home() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/30 to-transparent" />
+                <div className="absolute inset-0 bg-blue-50/20 mix-blend-overlay" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
@@ -541,7 +541,7 @@ export default function Home() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/30 to-transparent" />
+                <div className="absolute inset-0 bg-blue-50/20 mix-blend-overlay" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
@@ -567,7 +567,7 @@ export default function Home() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/30 to-transparent" />
+                <div className="absolute inset-0 bg-blue-50/20 mix-blend-overlay" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
@@ -593,7 +593,7 @@ export default function Home() {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/30 to-transparent" />
+                <div className="absolute inset-0 bg-blue-50/20 mix-blend-overlay" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
@@ -614,7 +614,7 @@ export default function Home() {
         </section>
 
         {/* Estimator - Claymorphic inputs + Glass outputs */}
-        <section id="estimator" className="py-20 bg-white/[0.01] border-y border-slate-100 relative">
+        <section id="estimator" className="py-20 bg-blue-100 border-y border-blue-200 relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               
@@ -786,7 +786,7 @@ export default function Home() {
                       </div>
                       <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-200">
                         <span className="text-slate-600 font-medium">Best Shipping Choice:</span>
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 font-bold font-display text-xs">
+                        <span className="text-blue-700 font-bold font-display text-xs">
                           {recommendedMode}
                         </span>
                       </div>
@@ -869,7 +869,7 @@ export default function Home() {
 
       
         {/* Contact Section */}
-        <section id="contact" className="py-20 bg-[#05080f]/5 border-t border-slate-100">
+        <section id="contact" className="py-20 bg-blue-100 border-t border-blue-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-12">
               <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight">
