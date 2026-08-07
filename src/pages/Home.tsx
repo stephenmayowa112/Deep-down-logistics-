@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { 
-  Package, MapPin, Box, 
+  Package, MapPin, Box, PlaneTakeoff, Container, 
   Search, 
   Plane, 
   Ship, 
@@ -509,13 +509,13 @@ export default function Home() {
             {/* CARD 1: Express Air Cargo */}
             <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
               <div className="h-32 w-full relative overflow-hidden bg-blue-50 flex items-center justify-center border-b border-blue-100">
-                <Plane className="w-16 h-16 text-blue-300 group-hover:scale-110 group-hover:text-blue-400 transition-all duration-500" />
+                <PlaneTakeoff className="w-16 h-16 text-blue-300 group-hover:scale-110 group-hover:text-blue-400 transition-all duration-500" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
                     <div className="w-8 h-8 bg-blue-500/15 rounded-lg flex items-center justify-center text-blue-400 border border-blue-500/20 shadow-inner">
-                      <Plane className="w-4 h-4" />
+                      <PlaneTakeoff className="w-4 h-4" />
                     </div>
                     <h3 className="text-xs font-display font-bold text-slate-900">Express Air Cargo</h3>
                   </div>
@@ -529,13 +529,13 @@ export default function Home() {
             {/* CARD 2: Ocean Freight */}
             <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
               <div className="h-32 w-full relative overflow-hidden bg-indigo-50 flex items-center justify-center border-b border-indigo-100">
-                <Ship className="w-16 h-16 text-indigo-300 group-hover:scale-110 group-hover:text-indigo-400 transition-all duration-500" />
+                <Container className="w-16 h-16 text-indigo-300 group-hover:scale-110 group-hover:text-indigo-400 transition-all duration-500" />
               </div>
               <div className="p-5 pt-4 flex-1 flex flex-col justify-between relative z-10">
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
                     <div className="w-8 h-8 bg-indigo-500/15 rounded-lg flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-inner">
-                      <Ship className="w-4 h-4" />
+                      <Container className="w-4 h-4" />
                     </div>
                     <h3 className="text-xs font-display font-bold text-slate-900">Ocean Freight (LCL/FCL)</h3>
                   </div>
