@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { Shipment } from "../types";
+import { DEFAULT_FREIGHT_USD_PER_CBM } from "../constants";
 
 // Mirrors the layout of generateClientManifestPDF() in pdfGenerator.ts (the
 // "GUANGZHOU PACKING LIST" design already approved as a WhatsApp image
@@ -137,7 +138,7 @@ export function generatePackingListImage(shipment: Shipment): Promise<Blob> {
 
   y += 40;
 
-  const freightRate = shipment.freight_usd_per_cbm || 0;
+  const freightRate = shipment.freight_usd_per_cbm || DEFAULT_FREIGHT_USD_PER_CBM;
   const clearingRate = shipment.clearing_naira_per_cbm || 0;
   const totalFreight = shipment.cbm * freightRate;
   const totalClearing = shipment.cbm * clearingRate;
@@ -148,8 +149,8 @@ export function generatePackingListImage(shipment: Shipment): Promise<Blob> {
     "",
     String(shipment.ctn ?? ""),
     shipment.cbm != null ? shipment.cbm.toFixed(2) : "",
-    freightRate > 0 ? `$${freightRate}` : "$0",
-    clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N",
+    freightRate > 0 ? `$${freightRate}` : "N/A",
+    clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N/A",
     "",
   ];
   const totalCells = [
@@ -157,8 +158,8 @@ export function generatePackingListImage(shipment: Shipment): Promise<Blob> {
     "",
     "",
     "",
-    totalFreight > 0 ? `$${totalFreight.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "$0",
-    totalClearing > 0 ? `N${totalClearing.toLocaleString()}` : "N",
+    totalFreight > 0 ? `$${totalFreight.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "N/A",
+    totalClearing > 0 ? `N${totalClearing.toLocaleString()}` : "N/A",
     "",
   ];
 

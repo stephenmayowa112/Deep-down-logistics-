@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { Shipment } from "../types";
+import { DEFAULT_FREIGHT_USD_PER_CBM } from "../constants";
 
 // Helper to format status text beautifully
 const formatStatus = (status: string): string => {
@@ -67,7 +68,7 @@ export function generateClientManifestPDF(
   let totalClearingNaira = 0;
 
   const tableRows = shipments.map(s => {
-    const freightRate = s.freight_usd_per_cbm || 0;
+    const freightRate = s.freight_usd_per_cbm || DEFAULT_FREIGHT_USD_PER_CBM;
     const clearingRate = s.clearing_naira_per_cbm || 0;
     
     totalFreightUsd += s.cbm * freightRate;
@@ -78,8 +79,8 @@ export function generateClientManifestPDF(
       "", // DESCRIPTION
       s.ctn,
       s.cbm.toFixed(2),
-      freightRate > 0 ? `$${freightRate}` : "$0",
-      clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N",
+      freightRate > 0 ? `$${freightRate}` : "N/A",
+      clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N/A",
       "" // REMARK
     ];
   });
@@ -89,8 +90,8 @@ export function generateClientManifestPDF(
     "",
     "",
     "",
-    totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "$0",
-    totalClearingNaira > 0 ? `N${totalClearingNaira.toLocaleString()}` : "N",
+    totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "N/A",
+    totalClearingNaira > 0 ? `N${totalClearingNaira.toLocaleString()}` : "N/A",
     ""
   ]);
 

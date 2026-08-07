@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle } from "lucide-react";
 import { Shipment, ShipmentStatus } from "../types";
-import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
+import { getMockShipments, updateMockShipmentStatus, updateMockContainerRate, importMockManifest } from "../lib/mockDb";
 import { generateAdminManifestPDF } from "../utils/pdfGenerator";
 import { generatePackingListImage } from "../utils/packingListImageGenerator";
+import { DEFAULT_FREIGHT_USD_PER_CBM } from "../constants";
 
 // Strips the "data:image/png;base64," prefix FileReader adds, since the
 // backend only wants the raw base64 payload to hand to Buffer.from().
@@ -289,7 +290,46 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredShipments = shipments.filter(s => 
+  // Freight/clearing rates have no other entry point in the app (not set by
+  // CSV import, not editable anywhere else). Set once per container/manifest
+  // rather than per shipment — freight is negotiated per container in
+  // practice, and one input per container is far less error-prone than
+  // retyping the same rate on every row.
+  const updateContainerRate = async (
+    containerId: string,
+    field: "freight_usd_per_cbm" | "clearing_naira_per_cbm",
+    rawValue: string
+  ) => {
+    const value = rawValue.trim() === "" ? 0 : parseFloat(rawValue);
+    if (isNaN(value)) return;
+
+    const shipmentsInContainer = shipments.filter(s => s.container_id === containerId);
+    if (shipmentsInContainer.length === 0) return;
+    if (shipmentsInContainer.every(s => (s[field] ?? 0) === value)) return;
+
+    if (isMock) {
+      try {
+        updateMockContainerRate(containerId, field, value);
+        fetchShipments();
+      } catch (error) {
+        toast.error("Failed to update container rate");
+      }
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      shipmentsInContainer.forEach(shipment => {
+        batch.update(doc(db, "shipments", shipment.id), { [field]: value, updated_at: Date.now() });
+      });
+      await batch.commit();
+      fetchShipments();
+    } catch (error) {
+      toast.error("Failed to update container rate");
+    }
+  };
+
+  const filteredShipments = shipments.filter(s =>
     s.tracking_id.toLowerCase().includes(search.toLowerCase()) ||
     s.shipping_mark.toLowerCase().includes(search.toLowerCase()) ||
     s.phone_number.includes(search)
@@ -385,6 +425,7 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3">ID / Mark</th>
                   <th className="px-4 py-3">Client Contact</th>
                   <th className="px-4 py-3">Volume</th>
+                  <th className="px-4 py-3">Freight / Clearing (per CBM)</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -392,7 +433,7 @@ export default function AdminDashboard() {
               <tbody className="text-xs divide-y divide-slate-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                       <div className="flex justify-center">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
                       </div>
@@ -400,7 +441,7 @@ export default function AdminDashboard() {
                   </tr>
                 ) : filteredShipments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                       No shipments found.
                     </td>
                   </tr>
@@ -415,15 +456,41 @@ export default function AdminDashboard() {
                   ).map(([containerId, containerShipments]) => (
                     <React.Fragment key={containerId}>
                       <tr className="bg-white/80 border-y border-slate-300/50">
-                        <td colSpan={4} className="px-4 py-2 font-medium text-slate-800">
+                        <td colSpan={3} className="px-4 py-2 font-medium text-slate-800">
                           <div className="flex items-center gap-2">
                             <Package className="w-3.5 h-3.5 text-blue-400" />
                             <span>Container: <span className="font-mono">{containerId}</span></span>
                             <span className="text-[10px] text-slate-600 ml-2">({(containerShipments as Shipment[]).length} items)</span>
                           </div>
                         </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-500">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              defaultValue={(containerShipments as Shipment[])[0]?.freight_usd_per_cbm || DEFAULT_FREIGHT_USD_PER_CBM}
+                              key={`${containerId}-freight-${(containerShipments as Shipment[])[0]?.freight_usd_per_cbm ?? ""}`}
+                              onBlur={(e) => updateContainerRate(containerId, "freight_usd_per_cbm", e.target.value)}
+                              title="Freight rate (USD/CBM) for every shipment in this container"
+                              className="w-16 text-[11px] border border-slate-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:border-blue-500"
+                            />
+                            <span className="text-slate-500">₦</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              defaultValue={(containerShipments as Shipment[])[0]?.clearing_naira_per_cbm ?? ""}
+                              key={`${containerId}-clearing-${(containerShipments as Shipment[])[0]?.clearing_naira_per_cbm ?? ""}`}
+                              onBlur={(e) => updateContainerRate(containerId, "clearing_naira_per_cbm", e.target.value)}
+                              title="Clearing rate (NAIRA/CBM) for every shipment in this container"
+                              className="w-16 text-[11px] border border-slate-300 rounded px-1.5 py-0.5 bg-white focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </td>
+                        <td></td>
                         <td className="px-4 py-2 text-right">
-                          <select 
+                          <select
                             onChange={(e) => updateContainerStatus(containerId, e.target.value)}
                             className="text-[10px] uppercase font-medium bg-white border border-slate-600 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                             defaultValue=""
@@ -450,6 +517,14 @@ export default function AdminDashboard() {
                           <td className="px-4 py-3">
                             <div className="text-slate-700">{shipment.cbm} CBM</div>
                             <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-slate-700">
+                              ${shipment.freight_usd_per_cbm || DEFAULT_FREIGHT_USD_PER_CBM}/CBM
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              {shipment.clearing_naira_per_cbm ? `₦${shipment.clearing_naira_per_cbm.toLocaleString()}/CBM` : "N/A"}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded-full border text-[10px] whitespace-nowrap ${getStatusColor(shipment.status)}`}>

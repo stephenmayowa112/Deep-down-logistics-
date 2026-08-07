@@ -147,6 +147,23 @@ export function updateMockShipmentStatus(shipmentId: string, status: ShipmentSta
   }
 }
 
+export function updateMockContainerRate(
+  containerId: string,
+  field: "freight_usd_per_cbm" | "clearing_naira_per_cbm",
+  value: number
+) {
+  const shipments = getMockShipments();
+  let changed = false;
+  shipments.forEach(s => {
+    if (s.container_id === containerId) {
+      s[field] = value;
+      s.updated_at = Date.now();
+      changed = true;
+    }
+  });
+  if (changed) saveMockShipments(shipments);
+}
+
 export function importMockManifest(rows: any[]) {
   const shipments = getMockShipments();
   const updates = getMockUpdates();
