@@ -6,7 +6,7 @@ const INITIAL_SHIPMENTS: Shipment[] = [
     tracking_id: "DDL-2026-88001",
     container_id: "CON-NGA-091",
     shipping_mark: "BIGFISH",
-    phone_number: "8033245670",
+    phone_number: "7037739313",
     ctn: 5,
     cbm: 1.2,
     status: "received_china",
