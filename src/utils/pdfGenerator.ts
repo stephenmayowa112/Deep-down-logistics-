@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { Shipment } from "../types";
+import { DEFAULT_FREIGHT_USD_PER_CBM } from "../constants";
 
 // Helper to format status text beautifully
 const formatStatus = (status: string): string => {
@@ -66,21 +67,19 @@ export function generateClientManifestPDF(
   let totalClearingNaira = 0;
 
   const tableRows = shipments.map(s => {
-    let freightRate = s.freight_usd_per_cbm || 0;
-    let clearingRate = s.clearing_naira_per_cbm || 0;
-    
+    // Precedence: an explicit override typed into this one-off export dialog
+    // wins, then the shipment's own persisted rate, then the admin's global
+    // settings default, then our hardcoded $200 as the last resort.
+    let freightRate = s.freight_usd_per_cbm || settings?.seaFreightRateUsd || DEFAULT_FREIGHT_USD_PER_CBM;
+    let clearingRate = s.clearing_naira_per_cbm || settings?.seaClearingRateNgn || 0;
+
     if (options?.freightRate && !isNaN(Number(options.freightRate))) {
       freightRate = Number(options.freightRate);
-    } else if (freightRate === 0 && settings?.seaFreightRateUsd) {
-      freightRate = settings.seaFreightRateUsd;
     }
-    
     if (options?.clearingRate && !isNaN(Number(options.clearingRate))) {
       clearingRate = Number(options.clearingRate);
-    } else if (clearingRate === 0 && settings?.seaClearingRateNgn) {
-      clearingRate = settings.seaClearingRateNgn;
     }
-    
+
     totalFreightUsd += s.cbm * freightRate;
     totalClearingNaira += s.cbm * clearingRate;
 
@@ -89,8 +88,8 @@ export function generateClientManifestPDF(
       "", // DESCRIPTION
       s.ctn,
       s.cbm.toFixed(2),
-      freightRate > 0 ? `${freightRate}` : "$0",
-      clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N",
+      freightRate > 0 ? `$${freightRate}` : "N/A",
+      clearingRate > 0 ? `N${clearingRate.toLocaleString()}` : "N/A",
       "" // REMARK
     ];
   });
@@ -100,8 +99,8 @@ export function generateClientManifestPDF(
     "",
     "",
     "",
-    totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "$0",
-    totalClearingNaira > 0 ? `N${totalClearingNaira.toLocaleString()}` : "N",
+    totalFreightUsd > 0 ? `$${totalFreightUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : "N/A",
+    totalClearingNaira > 0 ? `N${totalClearingNaira.toLocaleString()}` : "N/A",
     ""
   ]);
 
