@@ -6,7 +6,7 @@ const INITIAL_SHIPMENTS: Shipment[] = [
     tracking_id: "DDL-2026-88001",
     container_id: "CON-NGA-091",
     shipping_mark: "BIGFISH",
-    phone_number: "7037739313",
+    phone_number: "8033245670",
     ctn: 5,
     cbm: 1.2,
     status: "received_china",
@@ -145,23 +145,6 @@ export function updateMockShipmentStatus(shipmentId: string, status: ShipmentSta
     updates.unshift(newUpdate);
     saveMockUpdates(updates);
   }
-}
-
-export function updateMockContainerRate(
-  containerId: string,
-  field: "freight_usd_per_cbm" | "clearing_naira_per_cbm",
-  value: number
-) {
-  const shipments = getMockShipments();
-  let changed = false;
-  shipments.forEach(s => {
-    if (s.container_id === containerId) {
-      s[field] = value;
-      s.updated_at = Date.now();
-      changed = true;
-    }
-  });
-  if (changed) saveMockShipments(shipments);
 }
 
 export function importMockManifest(rows: any[]) {
