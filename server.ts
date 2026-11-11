@@ -46,6 +46,36 @@ interface StatusNotificationDetails {
   freightUsdPerCbm?: number;
   clearingNairaPerCbm?: number;
   status: string;
+  // The shipment's packing list as a PNG, rendered in the browser by generatePackingListImage().
+  packingListImage?: Buffer;
+}
+
+// WhatsApp needs the full international number. Numbers saved locally (0703...) are Nigerian.
+function normalizeNigerianNumber(phone: string): string {
+  let digits = phone.replace(/[^\d]/g, "");
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  if (!digits.startsWith("234")) digits = "234" + digits;
+  return digits;
+}
+
+// Uploads image bytes to Meta and returns the media id to put in a template header.
+async function uploadWhatsAppImage(token: string, phoneNumberId: string, image: Buffer, fileName: string): Promise<string> {
+  const form = new FormData();
+  form.append("file", new Blob([Uint8Array.from(image)], { type: "image/png" }), fileName);
+  form.append("messaging_product", "whatsapp");
+  form.append("type", "image/png");
+
+  const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const data = await response.json();
+  if (!response.ok || !data?.id) {
+    console.error("WhatsApp media upload error:", JSON.stringify(data));
+    throw new Error(data?.error?.message || "media_upload_failed");
+  }
+  return data.id;
 }
 
 // Computes the total freight cost the same way generateConsignmentReceiptPDF()
@@ -76,7 +106,7 @@ function formatFreight(cbm: number | string, freightUsdPerCbm?: number, clearing
 async function sendWhatsAppStatusUpdate(
   details: StatusNotificationDetails
 ): Promise<{ ok: boolean; error?: string }> {
-  const { phoneNumber, shippingMark, trackingId, containerNumber, ctn, cbm, freightUsdPerCbm, clearingNairaPerCbm, status } = details;
+  const { phoneNumber, shippingMark, trackingId, containerNumber, ctn, cbm, freightUsdPerCbm, clearingNairaPerCbm, status, packingListImage } = details;
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "shipment_status_update";
@@ -86,12 +116,43 @@ async function sendWhatsAppStatusUpdate(
     return { ok: false, error: "not_configured" };
   }
 
-  // WhatsApp requires E.164 format (digits only, with country code, no leading +/spaces/dashes).
-  const toNumber = phoneNumber.replace(/[^\d]/g, "");
+  const toNumber = normalizeNigerianNumber(phoneNumber);
   const statusLabel = STATUS_LABELS[status] || status;
   const freightLabel = status === "ready_for_pickup" ? formatFreight(cbm, freightUsdPerCbm, clearingNairaPerCbm) : "Pending";
 
+  // Meta rejects a send unless language, header and body values match the approved template exactly.
+  const allParams: Record<string, string> = {
+    shipping_mark: shippingMark || "N/A",
+    tracking_id: trackingId,
+    container_id: containerNumber || "N/A",
+    ctn: String(ctn ?? "N/A"),
+    cbm: String(cbm ?? "N/A"),
+    freight: freightLabel,
+    status: statusLabel,
+  };
+  const TEMPLATES: Record<string, { language: string; params: string[]; imageHeader?: boolean }> = {
+    "3p_direct_integration_test_template": { language: "en_US", params: [] },
+    shipping_update: { language: "en", params: ["shipping_mark"], imageHeader: true },
+  };
+  const tpl = TEMPLATES[templateName] ?? { language: "en_US", params: Object.keys(allParams) };
+  if (tpl.imageHeader && !packingListImage) {
+    console.error(`WhatsApp template ${templateName} needs the shipment's packing-list image; none was sent.`);
+    return { ok: false, error: "missing_packing_list_image" };
+  }
+
   try {
+    const components: object[] = [];
+    if (tpl.imageHeader) {
+      const mediaId = await uploadWhatsAppImage(token, phoneNumberId, packingListImage!, `packing-list-${trackingId}.png`);
+      components.push({ type: "header", parameters: [{ type: "image", image: { id: mediaId } }] });
+    }
+    if (tpl.params.length) {
+      components.push({
+        type: "body",
+        parameters: tpl.params.map((name) => ({ type: "text", text: allParams[name], parameter_name: name })),
+      });
+    }
+
     const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST",
       headers: {
@@ -104,21 +165,8 @@ async function sendWhatsAppStatusUpdate(
         type: "template",
         template: {
           name: templateName,
-          language: { code: "en_US" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: shippingMark || "N/A", parameter_name: "shipping_mark" },
-                { type: "text", text: trackingId, parameter_name: "tracking_id" },
-                { type: "text", text: containerNumber || "N/A", parameter_name: "container_id" },
-                { type: "text", text: String(ctn ?? "N/A"), parameter_name: "ctn" },
-                { type: "text", text: String(cbm ?? "N/A"), parameter_name: "cbm" },
-                { type: "text", text: freightLabel, parameter_name: "freight" },
-                { type: "text", text: statusLabel, parameter_name: "status" },
-              ],
-            },
-          ],
+          language: { code: tpl.language },
+          components,
         },
       }),
     });
@@ -133,7 +181,7 @@ async function sendWhatsAppStatusUpdate(
     return { ok: true };
   } catch (error) {
     console.error("Error calling WhatsApp API:", error);
-    return { ok: false, error: "network_error" };
+    return { ok: false, error: error instanceof Error ? error.message : "network_error" };
   }
 }
 
@@ -141,13 +189,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Packing-list PNGs arrive base64-encoded and run a few hundred KB, over express's 100kb default.
+  app.use(express.json({ limit: "5mb" }));
 
   // Notify a client via WhatsApp that their shipment status has changed.
   // Fire-and-forget from the frontend's perspective: failures here should
   // never block the underlying Firestore status update.
   app.post("/api/notify-status", async (req, res) => {
-    const { phone_number, shipping_mark, tracking_id, container_number, ctn, cbm, freight_usd_per_cbm, clearing_naira_per_cbm, status } = req.body || {};
+    const { phone_number, shipping_mark, tracking_id, container_number, ctn, cbm, freight_usd_per_cbm, clearing_naira_per_cbm, status, image_base64 } = req.body || {};
 
     if (!phone_number || !tracking_id || !status) {
       return res.status(400).json({ error: "phone_number, tracking_id and status are required" });
@@ -163,6 +212,7 @@ async function startServer() {
       freightUsdPerCbm: freight_usd_per_cbm,
       clearingNairaPerCbm: clearing_naira_per_cbm,
       status,
+      packingListImage: image_base64 ? Buffer.from(image_base64, "base64") : undefined,
     });
 
     if (!result.ok) {

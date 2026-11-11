@@ -8,9 +8,41 @@ import Papa from "papaparse";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle, Settings } from "lucide-react";
-import { Shipment, ShipmentStatus } from "../types";
+import { PricingSettings, Shipment, ShipmentStatus } from "../types";
 import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
 import { generateAdminManifestPDF, generateClientManifestPDF } from "../utils/pdfGenerator";
+import { generatePackingListImage } from "../utils/packingListImageGenerator";
+
+// Raw base64 of a Blob, without the "data:image/png;base64," prefix.
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Draws the shipment's packing list and sends it as the WhatsApp template's header image.
+async function sendPackingListWhatsApp(shipment: Shipment, status: string, settings: PricingSettings): Promise<Response> {
+  const image_base64 = await blobToBase64(await generatePackingListImage(shipment, settings));
+  return fetch("/api/notify-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      phone_number: shipment.phone_number,
+      shipping_mark: shipment.shipping_mark,
+      tracking_id: shipment.tracking_id,
+      container_number: shipment.container_id,
+      ctn: shipment.ctn,
+      cbm: shipment.cbm,
+      freight_usd_per_cbm: shipment.freight_usd_per_cbm,
+      clearing_naira_per_cbm: shipment.clearing_naira_per_cbm,
+      status,
+      image_base64,
+    }),
+  });
+}
 
 export default function AdminDashboard() {
   const { dbUser, isMock, setMockMode } = useAuth();
@@ -53,21 +85,20 @@ export default function AdminDashboard() {
     if (!testWhatsAppPhone) return toast.error("Please enter a phone number");
     setTestingWhatsApp(true);
     try {
-      const res = await fetch("/api/notify-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: testWhatsAppPhone,
-          shipping_mark: "TEST-MARK-001",
-          tracking_id: "DDL-TEST-12345",
-          container_number: "TESTU1234567",
-          ctn: 1,
-          cbm: 0.5,
-          freight_usd_per_cbm: 180,
-          clearing_naira_per_cbm: 300000,
-          status: "shipped"
-        })
-      });
+      const res = await sendPackingListWhatsApp({
+        id: "test",
+        phone_number: testWhatsAppPhone,
+        shipping_mark: "TEST-MARK-001",
+        tracking_id: "DDL-TEST-12345",
+        container_id: "TESTU1234567",
+        ctn: 1,
+        cbm: 0.5,
+        freight_usd_per_cbm: 180,
+        clearing_naira_per_cbm: 300000,
+        status: "shipped",
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      }, "shipped", settings);
       const data = await res.json();
       if (res.ok && data.sent) {
         toast.success("Test WhatsApp message sent!");
@@ -212,25 +243,13 @@ export default function AdminDashboard() {
   // intentionally "fire and forget" from the caller's perspective — a
   // failure here (missing credentials, network issue, etc.) is logged but
   // never blocks or rolls back the Firestore status update.
+  // Only "shipped" sends: the approved template's header is the shipment's packing list.
   const notifyStatusByWhatsApp = (shipment: Shipment, status: string) => {
     if (!shipment.phone_number) return;
+    if (status !== "shipped") return;
 
     const sendNow = () => {
-      fetch("/api/notify-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone_number: shipment.phone_number,
-          shipping_mark: shipment.shipping_mark,
-          tracking_id: shipment.tracking_id,
-          container_number: shipment.container_id,
-          ctn: shipment.ctn,
-          cbm: shipment.cbm,
-          freight_usd_per_cbm: shipment.freight_usd_per_cbm,
-          clearing_naira_per_cbm: shipment.clearing_naira_per_cbm,
-          status,
-        }),
-      }).catch((error) => {
+      sendPackingListWhatsApp(shipment, status, settings).catch((error) => {
         console.error("Failed to send WhatsApp status notification:", error);
       });
     };
