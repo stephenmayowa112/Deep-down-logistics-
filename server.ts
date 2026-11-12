@@ -103,6 +103,40 @@ function formatFreight(cbm: number | string, freightUsdPerCbm?: number, clearing
   return parts.length > 0 ? parts.join(" + ") : "Not yet quoted";
 }
 
+// Meta never shows the support inbox what this app sends, so post it a copy.
+// Never fails the send: the customer already has the message.
+async function copyToSupportInbox(copy: {
+  waMessageId?: string;
+  to: string;
+  body: string | null;
+  templateName: string;
+  image?: Buffer;
+  fileName: string;
+}): Promise<void> {
+  const url = process.env.SUPPORT_INBOX_URL;
+  const secret = process.env.SUPPORT_INBOX_SECRET;
+  if (!url || !secret || !copy.waMessageId) return;
+  try {
+    const response = await fetch(`${url.replace(/\/$/, "")}/api/automated-messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wa_message_id: copy.waMessageId,
+        to: copy.to,
+        body: copy.body,
+        template_name: copy.templateName,
+        image_base64: copy.image ? copy.image.toString("base64") : undefined,
+        image_mime_type: copy.image ? "image/png" : undefined,
+        file_name: copy.image ? copy.fileName : undefined,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) console.error("Support inbox copy failed:", response.status, await response.text());
+  } catch (error) {
+    console.error("Support inbox copy failed:", error);
+  }
+}
+
 async function sendWhatsAppStatusUpdate(
   details: StatusNotificationDetails
 ): Promise<{ ok: boolean; error?: string }> {
@@ -130,9 +164,16 @@ async function sendWhatsAppStatusUpdate(
     freight: freightLabel,
     status: statusLabel,
   };
-  const TEMPLATES: Record<string, { language: string; params: string[]; imageHeader?: boolean }> = {
+  // `text` is the approved template body with the values filled in. It is only
+  // used for the support inbox's copy; keep it in step with the template in Meta.
+  const TEMPLATES: Record<string, { language: string; params: string[]; imageHeader?: boolean; text?: (p: Record<string, string>) => string }> = {
     "3p_direct_integration_test_template": { language: "en_US", params: [] },
-    shipping_update: { language: "en", params: ["shipping_mark"], imageHeader: true },
+    shipping_update: {
+      language: "en",
+      params: ["shipping_mark"],
+      imageHeader: true,
+      text: (p) => `Hello ${p.shipping_mark}, here are your shipping details`,
+    },
   };
   const tpl = TEMPLATES[templateName] ?? { language: "en_US", params: Object.keys(allParams) };
   if (tpl.imageHeader && !packingListImage) {
@@ -177,6 +218,15 @@ async function sendWhatsAppStatusUpdate(
       console.error("WhatsApp API error:", JSON.stringify(data));
       return { ok: false, error: data?.error?.message || "whatsapp_api_error" };
     }
+
+    await copyToSupportInbox({
+      waMessageId: data?.messages?.[0]?.id,
+      to: toNumber,
+      body: tpl.text ? tpl.text(allParams) : null,
+      templateName,
+      image: tpl.imageHeader ? packingListImage : undefined,
+      fileName: `packing-list-${trackingId}.png`,
+    });
 
     return { ok: true };
   } catch (error) {
