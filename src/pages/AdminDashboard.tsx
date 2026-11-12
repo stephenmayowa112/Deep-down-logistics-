@@ -3,13 +3,13 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc, writeBatch, setDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, writeBatch, setDoc, updateDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle, Settings } from "lucide-react";
+import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle, Settings, Pencil, Check, X, Plus, Phone } from "lucide-react";
 import { PricingSettings, Shipment, ShipmentStatus } from "../types";
-import { getMockShipments, updateMockShipmentStatus, importMockManifest } from "../lib/mockDb";
+import { getMockShipments, updateMockShipmentStatus, importMockManifest, updateMockShipmentPhone, createMockShipment } from "../lib/mockDb";
 import { generateAdminManifestPDF, generateClientManifestPDF } from "../utils/pdfGenerator";
 import { generatePackingListImage } from "../utils/packingListImageGenerator";
 
@@ -51,6 +51,34 @@ export default function AdminDashboard() {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   
+  // Inline phone editing state
+  const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
+  const [editingPhoneValue, setEditingPhoneValue] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  // Manual Add Shipment modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [creatingShipment, setCreatingShipment] = useState(false);
+  const [newShipmentForm, setNewShipmentForm] = useState<{
+    container_id: string;
+    shipping_mark: string;
+    phone_number: string;
+    ctn: string;
+    cbm: string;
+    freight_usd_per_cbm: string;
+    clearing_naira_per_cbm: string;
+    status: ShipmentStatus;
+  }>({
+    container_id: "",
+    shipping_mark: "",
+    phone_number: "",
+    ctn: "1",
+    cbm: "0.5",
+    freight_usd_per_cbm: "",
+    clearing_naira_per_cbm: "",
+    status: "received_china",
+  });
+
   // Settings state
   const [settings, setSettings] = useState<any>({ exchangeRateUsdNgn: 1500, seaFreightRateUsd: 180, seaClearingRateNgn: 300000, airFreightRateUsd: 8, airClearingRateNgn: 15000 });
   const [testWhatsAppPhone, setTestWhatsAppPhone] = useState("");
@@ -150,6 +178,116 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchShipments();
   }, []);
+
+  const handleSavePhone = async (shipmentId: string) => {
+    setSavingPhone(true);
+    const cleaned = editingPhoneValue.trim();
+    try {
+      if (isMock) {
+        updateMockShipmentPhone(shipmentId, cleaned);
+      } else {
+        await updateDoc(doc(db, "shipments", shipmentId), {
+          phone_number: cleaned,
+          updated_at: Date.now(),
+        });
+      }
+      toast.success(cleaned ? "Customer WhatsApp number updated" : "Phone number cleared");
+      setEditingPhoneId(null);
+      fetchShipments();
+    } catch (error) {
+      console.error("Failed to update phone number:", error);
+      toast.error("Failed to update phone number");
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  const handleCreateShipment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newShipmentForm.shipping_mark.trim()) {
+      return toast.error("Shipping Mark is required");
+    }
+    if (!newShipmentForm.container_id.trim()) {
+      return toast.error("Container Number is required");
+    }
+
+    setCreatingShipment(true);
+    try {
+      const ctn = parseInt(newShipmentForm.ctn, 10) || 1;
+      const cbm = parseFloat(newShipmentForm.cbm) || 0.1;
+      const freightUsd = newShipmentForm.freight_usd_per_cbm ? parseFloat(newShipmentForm.freight_usd_per_cbm) : undefined;
+      const clearingNgn = newShipmentForm.clearing_naira_per_cbm ? parseFloat(newShipmentForm.clearing_naira_per_cbm) : undefined;
+
+      let createdShipment: Shipment;
+
+      if (isMock) {
+        createdShipment = createMockShipment({
+          container_id: newShipmentForm.container_id,
+          shipping_mark: newShipmentForm.shipping_mark,
+          phone_number: newShipmentForm.phone_number,
+          ctn,
+          cbm,
+          freight_usd_per_cbm: freightUsd,
+          clearing_naira_per_cbm: clearingNgn,
+          status: newShipmentForm.status,
+        });
+      } else {
+        const trackingId = `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        const shipmentRef = doc(collection(db, "shipments"));
+        const now = Date.now();
+        const shipmentData: Omit<Shipment, "id"> = {
+          tracking_id: trackingId,
+          container_id: newShipmentForm.container_id.trim(),
+          shipping_mark: newShipmentForm.shipping_mark.trim(),
+          phone_number: newShipmentForm.phone_number.trim(),
+          ctn,
+          cbm,
+          ...(freightUsd ? { freight_usd_per_cbm: freightUsd } : {}),
+          ...(clearingNgn ? { clearing_naira_per_cbm: clearingNgn } : {}),
+          status: newShipmentForm.status,
+          created_at: now,
+          updated_at: now,
+        };
+
+        const batch = writeBatch(db);
+        batch.set(shipmentRef, shipmentData);
+
+        const updateRef = doc(collection(db, "tracking_updates"));
+        batch.set(updateRef, {
+          shipment_id: shipmentRef.id,
+          status: newShipmentForm.status,
+          note: `Shipment manually created for container ${shipmentData.container_id}`,
+          created_at: now,
+        });
+
+        await batch.commit();
+        createdShipment = { id: shipmentRef.id, ...shipmentData };
+      }
+
+      toast.success(`Shipment ${createdShipment.tracking_id} added`);
+      setIsAddModalOpen(false);
+      setNewShipmentForm({
+        container_id: "",
+        shipping_mark: "",
+        phone_number: "",
+        ctn: "1",
+        cbm: "0.5",
+        freight_usd_per_cbm: "",
+        clearing_naira_per_cbm: "",
+        status: "received_china",
+      });
+      fetchShipments();
+
+      if (createdShipment.status === "shipped" && createdShipment.phone_number) {
+        notifyStatusByWhatsApp(createdShipment, "shipped");
+      }
+    } catch (error) {
+      console.error("Failed to create shipment:", error);
+      toast.error("Failed to create shipment");
+    } finally {
+      setCreatingShipment(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -525,7 +663,14 @@ export default function AdminDashboard() {
               <Download className="w-3 h-3 text-blue-400" />
               Download PDF
             </button>
-            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-slate-900 text-xs font-medium rounded-md transition-colors whitespace-nowrap">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Shipment
+            </button>
+            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap shadow-sm">
               {uploading ? (
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
               ) : (
@@ -543,13 +688,13 @@ export default function AdminDashboard() {
               <thead className="bg-white text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
                 <tr className="border-b border-slate-200">
                   <th className="px-4 py-3">ID / Mark</th>
-                  <th className="px-4 py-3">Client Contact</th>
+                  <th className="px-4 py-3">Client Contact (WhatsApp)</th>
                   <th className="px-4 py-3">Volume</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="text-xs divide-y divide-slate-800">
+              <tbody className="text-xs divide-y divide-slate-200">
                 {loading ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
@@ -574,10 +719,10 @@ export default function AdminDashboard() {
                     }, {} as Record<string, Shipment[]>)
                   ).map(([containerId, containerShipments]) => (
                     <React.Fragment key={containerId}>
-                      <tr className="bg-white/80 border-y border-slate-300/50">
+                      <tr className="bg-slate-50/90 border-y border-slate-200">
                         <td colSpan={4} className="px-4 py-2 font-medium text-slate-800">
                           <div className="flex items-center gap-2">
-                            <Package className="w-3.5 h-3.5 text-blue-400" />
+                            <Package className="w-3.5 h-3.5 text-blue-500" />
                             <span>Container: <span className="font-mono">{containerId}</span></span>
                             <span className="text-[10px] text-slate-600 ml-2">({(containerShipments as Shipment[]).length} items)</span>
                           </div>
@@ -585,7 +730,7 @@ export default function AdminDashboard() {
                         <td className="px-4 py-2 text-right">
                           <select 
                             onChange={(e) => updateContainerStatus(containerId, e.target.value)}
-                            className="text-[10px] uppercase font-medium bg-white border border-slate-600 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            className="text-[10px] uppercase font-medium bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                             defaultValue=""
                           >
                             <option value="" disabled>Update All To...</option>
@@ -609,13 +754,61 @@ export default function AdminDashboard() {
                         </td>
                       </tr>
                       {(containerShipments as Shipment[]).map((shipment) => (
-                        <tr key={shipment.id} className="hover:bg-white/50">
+                        <tr key={shipment.id} className="hover:bg-slate-50/60">
                           <td className="px-4 py-3">
                             <div className="font-mono text-slate-600">{shipment.tracking_id}</div>
                             <div className="font-medium text-slate-800 mt-0.5">{shipment.shipping_mark}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-slate-700">{shipment.phone_number || "Unmatched"}</div>
+                            {editingPhoneId === shipment.id ? (
+                              <div className="flex items-center gap-1.5 max-w-[230px]">
+                                <input
+                                  type="text"
+                                  value={editingPhoneValue}
+                                  onChange={(e) => setEditingPhoneValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSavePhone(shipment.id);
+                                    if (e.key === "Escape") setEditingPhoneId(null);
+                                  }}
+                                  placeholder="e.g. 08031234567"
+                                  autoFocus
+                                  className="w-full px-2 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
+                                />
+                                <button
+                                  onClick={() => handleSavePhone(shipment.id)}
+                                  disabled={savingPhone}
+                                  className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                                  title="Save Phone Number"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setEditingPhoneId(null)}
+                                  disabled={savingPhone}
+                                  className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-colors"
+                                  title="Cancel"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 group">
+                                <span className={shipment.phone_number ? "text-slate-800 font-mono" : "text-amber-600 italic"}>
+                                  {shipment.phone_number || "No WhatsApp #"}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingPhoneId(shipment.id);
+                                    setEditingPhoneValue(shipment.phone_number || "");
+                                  }}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                                  title="Edit customer WhatsApp number"
+                                >
+                                  <Pencil className="w-2.5 h-2.5" />
+                                  {shipment.phone_number ? "Edit" : "Add #"}
+                                </button>
+                              </div>
+                            )}
                             <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
                           </td>
                           <td className="px-4 py-3">
@@ -662,6 +855,154 @@ export default function AdminDashboard() {
         </div>
       </>)}
       </main>
+
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <form onSubmit={handleCreateShipment} className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Add New Shipment</h3>
+                <p className="text-xs text-slate-500">Create a single shipment with customer WhatsApp contact</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Container Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., CON-NGA-091"
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.container_id}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, container_id: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Shipping Mark *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., BIGFISH"
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.shipping_mark}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, shipping_mark: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Customer WhatsApp Number</label>
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="e.g., 08031234567 or 2348031234567"
+                    className="w-full border border-slate-300 rounded pl-8 pr-3 py-2 text-sm focus:outline-blue-500 font-mono"
+                    value={newShipmentForm.phone_number}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, phone_number: e.target.value })}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Local Nigerian numbers (080...) are automatically formatted to +234 for WhatsApp.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity (CTN) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.ctn}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, ctn: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Volume (CBM) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.cbm}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, cbm: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Freight Rate (USD/CBM)</label>
+                  <input
+                    type="number"
+                    placeholder={`Default: ${settings?.seaFreightRateUsd || 180}`}
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.freight_usd_per_cbm}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, freight_usd_per_cbm: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Clearing Rate (NGN/CBM)</label>
+                  <input
+                    type="number"
+                    placeholder={`Default: ${settings?.seaClearingRateNgn || 300000}`}
+                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    value={newShipmentForm.clearing_naira_per_cbm}
+                    onChange={(e) => setNewShipmentForm({ ...newShipmentForm, clearing_naira_per_cbm: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Initial Status</label>
+                <select
+                  value={newShipmentForm.status}
+                  onChange={(e) => setNewShipmentForm({ ...newShipmentForm, status: e.target.value as ShipmentStatus })}
+                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500 uppercase bg-white"
+                >
+                  {allStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+                {newShipmentForm.status === "shipped" && newShipmentForm.phone_number && (
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    Creating with status "SHIPPED" will automatically send the Packing List WhatsApp notification.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={creatingShipment}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50"
+              >
+                {creatingShipment ? "Saving..." : "Create Shipment"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {manifestModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -711,3 +1052,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

@@ -187,3 +187,60 @@ export function importMockManifest(rows: any[]) {
   saveMockUpdates(updates);
   return count;
 }
+
+export function updateMockShipmentPhone(shipmentId: string, phoneNumber: string) {
+  const shipments = getMockShipments();
+  const index = shipments.findIndex((s) => s.id === shipmentId);
+  if (index !== -1) {
+    shipments[index].phone_number = phoneNumber.trim();
+    shipments[index].updated_at = Date.now();
+    saveMockShipments(shipments);
+  }
+}
+
+export function createMockShipment(input: {
+  container_id: string;
+  shipping_mark: string;
+  phone_number: string;
+  ctn: number;
+  cbm: number;
+  freight_usd_per_cbm?: number;
+  clearing_naira_per_cbm?: number;
+  status?: ShipmentStatus;
+}): Shipment {
+  const shipments = getMockShipments();
+  const updates = getMockUpdates();
+  const trackingId = `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+  const shipmentId = `mock-s-${Math.random().toString(36).slice(2, 11)}`;
+  const status: ShipmentStatus = input.status || "received_china";
+
+  const newShipment: Shipment = {
+    id: shipmentId,
+    tracking_id: trackingId,
+    container_id: input.container_id.trim() || "CON-UNK",
+    shipping_mark: input.shipping_mark.trim() || "UNMARKED",
+    phone_number: input.phone_number.trim(),
+    ctn: Number(input.ctn) || 1,
+    cbm: Number(input.cbm) || 0.1,
+    ...(input.freight_usd_per_cbm ? { freight_usd_per_cbm: Number(input.freight_usd_per_cbm) } : {}),
+    ...(input.clearing_naira_per_cbm ? { clearing_naira_per_cbm: Number(input.clearing_naira_per_cbm) } : {}),
+    status,
+    created_at: Date.now(),
+    updated_at: Date.now(),
+  };
+
+  const newUpdate: TrackingUpdate = {
+    id: `mock-u-${Math.random().toString(36).slice(2, 11)}`,
+    shipment_id: shipmentId,
+    status,
+    note: `Shipment manually created for container ${newShipment.container_id}`,
+    created_at: Date.now(),
+  };
+
+  shipments.unshift(newShipment);
+  updates.unshift(newUpdate);
+  saveMockShipments(shipments);
+  saveMockUpdates(updates);
+  return newShipment;
+}
+
