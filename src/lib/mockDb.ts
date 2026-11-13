@@ -1,4 +1,5 @@
 import { Shipment, TrackingUpdate, ShipmentStatus } from "../types";
+import type { ManifestShipment } from "../utils/manifestParser";
 
 const INITIAL_SHIPMENTS: Shipment[] = [
   {
@@ -147,24 +148,20 @@ export function updateMockShipmentStatus(shipmentId: string, status: ShipmentSta
   }
 }
 
-export function importMockManifest(rows: any[]) {
+export function importMockManifest(rows: ManifestShipment[]) {
   const shipments = getMockShipments();
   const updates = getMockUpdates();
   let count = 0;
 
   for (const row of rows) {
-    const containerId = row.container_number || "CON-UNK";
+    const containerId = row.container_id;
     const trackingId = `DDL-2026-${Math.floor(10000 + Math.random() * 90000)}`;
     const shipmentId = `mock-s-${Math.random().toString(36).substr(2, 9)}`;
 
     const newShipment: Shipment = {
+      ...row,
       id: shipmentId,
       tracking_id: trackingId,
-      container_id: containerId,
-      shipping_mark: row.shipping_mark || "UNMARKED",
-      phone_number: row.phone_number || "",
-      ctn: parseInt(row.ctn) || 1,
-      cbm: parseFloat(row.cbm) || 0.1,
       status: "received_china",
       created_at: Date.now(),
       updated_at: Date.now(),

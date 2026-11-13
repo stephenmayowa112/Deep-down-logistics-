@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db } from "../lib/firebase";
 import { collection, getDocs, getDoc, doc, writeBatch, setDoc, updateDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
-import Papa from "papaparse";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle, Settings, Pencil, Check, X, Plus, Phone } from "lucide-react";
@@ -12,6 +11,7 @@ import { PricingSettings, Shipment, ShipmentStatus } from "../types";
 import { getMockShipments, updateMockShipmentStatus, importMockManifest, updateMockShipmentPhone, createMockShipment } from "../lib/mockDb";
 import { generateAdminManifestPDF, generateClientManifestPDF } from "../utils/pdfGenerator";
 import { generatePackingListImage } from "../utils/packingListImageGenerator";
+import { parseManifestRows, readManifestFile } from "../utils/manifestParser";
 
 // Raw base64 of a Blob, without the "data:image/png;base64," prefix.
 function blobToBase64(blob: Blob): Promise<string> {
@@ -289,92 +289,47 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    if (isMock) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          try {
-            const count = importMockManifest(results.data);
-            toast.success(`Successfully imported ${count} shipments`);
-            fetchShipments();
-          } catch (error) {
-            console.error("Import error:", error);
-            toast.error("Failed to import manifest");
-          } finally {
-            setUploading(false);
-            if (e.target) e.target.value = '';
-          }
-        },
-        error: (error) => {
-          toast.error("Error parsing CSV");
-          setUploading(false);
+    try {
+      const { shipments: rows } = parseManifestRows(await readManifestFile(file));
+
+      if (isMock) {
+        importMockManifest(rows);
+      } else {
+        const batch = writeBatch(db);
+        for (const row of rows) {
+          const shipmentRef = doc(collection(db, "shipments"));
+          batch.set(shipmentRef, {
+            ...row,
+            tracking_id: `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+            status: "received_china",
+            created_at: Date.now(),
+            updated_at: Date.now(),
+          });
+          batch.set(doc(collection(db, "tracking_updates")), {
+            shipment_id: shipmentRef.id,
+            status: "received_china",
+            note: `Manifest imported for container ${row.container_id}`,
+            created_at: Date.now(),
+          });
         }
-      });
-      return;
-    }
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const batch = writeBatch(db);
-          let count = 0;
-          
-          for (const row of results.data as any[]) {
-            const containerId = row.container_number;
-            // Generate a tracking ID
-            const trackingId = `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-            const shipmentRef = doc(collection(db, "shipments"));
-            
-            const shipmentData = {
-              tracking_id: trackingId,
-              container_id: containerId,
-              shipping_mark: row.shipping_mark,
-              phone_number: row.phone_number || "",
-              ctn: parseInt(row.ctn) || 0,
-              cbm: parseFloat(row.cbm) || 0,
-              status: "received_china",
-              created_at: Date.now(),
-              updated_at: Date.now(),
-            };
-
-            batch.set(shipmentRef, shipmentData);
-            
-            // Also add initial tracking update
-            const updateRef = doc(collection(db, "tracking_updates"));
-            batch.set(updateRef, {
-              shipment_id: shipmentRef.id,
-              status: "received_china",
-              note: `Manifest imported for container ${containerId}`,
-              created_at: Date.now()
-            });
-
-            count++;
-          }
-
-          await batch.commit();
-          toast.success(`Successfully imported ${count} shipments`);
-          fetchShipments();
-        } catch (error) {
-          console.error("Import error:", error);
-          toast.error("Failed to import manifest");
-        } finally {
-          setUploading(false);
-          if (e.target) e.target.value = '';
-        }
-      },
-      error: (error) => {
-        toast.error("Error parsing CSV");
-        setUploading(false);
+        await batch.commit();
       }
-    });
+
+      toast.success(`Imported ${rows.length} shipments for container ${rows[0].container_id}`);
+      fetchShipments();
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to import manifest");
+    } finally {
+      setUploading(false);
+      input.value = "";
+    }
   };
 
   // Fires the WhatsApp status notification via the backend route. This is
@@ -677,7 +632,7 @@ export default function AdminDashboard() {
                 <FileSpreadsheet className="w-3 h-3" />
               )}
               Import Manifest
-              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+              <input type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
             </label>
           </div>
         </div>
