@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Package } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -130,9 +130,19 @@ export default function Home() {
         <header className="rise flex justify-between items-center py-5 sm:py-7 gap-4 relative z-30">
           <Link
             to="/"
-            className="font-bold text-[20px] tracking-[-0.02em] text-[#0B1220] hover:opacity-70 transition-opacity"
+            className="flex items-center gap-3 hover:opacity-85 transition-opacity min-w-0"
           >
-            Deep Down
+            <div className="w-10 h-10 clay-card-blue flex items-center justify-center shrink-0">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-display font-bold text-base sm:text-lg tracking-[-0.02em] text-[#0B1220] block truncate leading-tight">
+                Deep Down Logistics
+              </span>
+              <span className="text-[10px] text-[#0A54E1] font-semibold tracking-widest uppercase block">
+                Limited
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Nav */}
@@ -852,7 +862,22 @@ export default function Home() {
           className="border-t border-[#E3E8F0] pt-14 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 text-[14px] text-[#4B5565]"
         >
           <div>
-            <p className="font-bold text-[18px] text-[#0B1220] mb-3">Deep Down</p>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-3 hover:opacity-85 transition-opacity mb-3"
+            >
+              <div className="w-9 h-9 clay-card-blue flex items-center justify-center shrink-0">
+                <Package className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <span className="font-display font-bold text-[16px] tracking-[-0.02em] text-[#0B1220] block leading-tight">
+                  Deep Down Logistics
+                </span>
+                <span className="text-[10px] text-[#0A54E1] font-semibold tracking-widest uppercase block">
+                  Limited
+                </span>
+              </div>
+            </Link>
             <p className="m-0">
               Cargo from Guangzhou to Lagos, by air and sea. Groupage, full container load, and port clearing.
             </p>
