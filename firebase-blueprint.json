@@ -56,6 +56,17 @@
       "indexes": [
         { "fields": ["shipment_id"] }
       ]
+    },
+    {
+      "name": "settings",
+      "fields": [
+        { "name": "exchangeRateUsdNgn", "type": "number" },
+        { "name": "seaFreightRateUsd", "type": "number" },
+        { "name": "seaClearingRateNgn", "type": "number" },
+        { "name": "airFreightRateUsd", "type": "number" },
+        { "name": "airClearingRateNgn", "type": "number" }
+      ],
+      "indexes": []
     }
   ]
 }

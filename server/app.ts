@@ -92,7 +92,7 @@ function formatFreight(cbm: number | string, freightUsdPerCbm?: number, clearing
   const parts = [];
   if (freightUsdPerCbm && freightUsdPerCbm > 0) {
     const totalUsd = cbmValue * freightUsdPerCbm;
-    parts.push(`\${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    parts.push(`$${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   }
   if (clearingNairaPerCbm && clearingNairaPerCbm > 0) {
     const totalNgn = cbmValue * clearingNairaPerCbm;

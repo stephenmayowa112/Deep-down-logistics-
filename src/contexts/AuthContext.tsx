@@ -1,86 +1,70 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { auth, db } from "../lib/firebase";
+import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { User } from "../types";
+
+const BOOTSTRAPPED_ADMIN_EMAIL = "stephenmayowa112@gmail.com";
 
 interface AuthContextType {
   user: FirebaseUser | null;
   dbUser: User | null;
   loading: boolean;
-  isMock: boolean;
-  setMockMode: (role: "admin" | "client" | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   dbUser: null,
   loading: true,
-  isMock: false,
-  setMockMode: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [dbUser, setDbUser] = useState<User | null>(null);
-  const [isMock, setIsMock] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const setMockMode = (role: "admin" | "client" | null) => {
-    if (role) {
-      localStorage.setItem("ddl_mock_role", role);
-      setIsMock(true);
-      setUser({
-        uid: `mock-${role}-uid`,
-        email: `${role}@test.com`,
-        emailVerified: true,
-      } as any);
-      setDbUser({
-        id: `mock-${role}-id`,
-        role: role,
-        phone_number: role === "admin" ? "0000000000" : "8033245670",
-        shipping_mark: role === "admin" ? "ADMIN" : "BIGFISH",
-        is_verified: true,
-      });
-      setLoading(false);
-    } else {
-      localStorage.removeItem("ddl_mock_role");
-      setIsMock(false);
-      setUser(null);
-      setDbUser(null);
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    // Check if mock mode is stored in localStorage
-    const savedMockRole = localStorage.getItem("ddl_mock_role");
-    if (savedMockRole === "admin" || savedMockRole === "client") {
-      setMockMode(savedMockRole as "admin" | "client");
-      return;
-    }
-
     let unsubscribeDoc: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = null;
+      }
+
       if (firebaseUser) {
-        // Fetch user document and listen for updates
+        const userDocPath = `users/${firebaseUser.uid}`;
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        unsubscribeDoc = onSnapshot(userDocRef, (userDocSnap) => {
-          if (userDocSnap.exists()) {
-            setDbUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
-          } else {
-            setDbUser(null);
+        const isOwnerAdmin =
+          firebaseUser.email?.toLowerCase().trim() === BOOTSTRAPPED_ADMIN_EMAIL &&
+          firebaseUser.emailVerified;
+
+        unsubscribeDoc = onSnapshot(
+          userDocRef,
+          (userDocSnap) => {
+            if (userDocSnap.exists()) {
+              const data = userDocSnap.data() as Omit<User, "id">;
+              if (isOwnerAdmin && data.role !== "admin") {
+                updateDoc(userDocRef, { role: "admin" }).catch((err) =>
+                  console.error("Failed to promote bootstrapped admin:", err)
+                );
+                setDbUser({ id: userDocSnap.id, ...data, role: "admin" });
+              } else {
+                setDbUser({ id: userDocSnap.id, ...data });
+              }
+            } else {
+              setDbUser(null);
+            }
+            setLoading(false);
+          },
+          (error) => {
+            setLoading(false);
+            handleFirestoreError(error, OperationType.GET, userDocPath);
           }
-          setLoading(false);
-        });
+        );
       } else {
         setDbUser(null);
-        if (unsubscribeDoc) {
-          unsubscribeDoc();
-          unsubscribeDoc = null;
-        }
         setLoading(false);
       }
     });
@@ -92,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, dbUser, loading, isMock, setMockMode }}>
+    <AuthContext.Provider value={{ user, dbUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

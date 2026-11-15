@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { Helmet } from "react-helmet-async";
 import { useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { 
   Package, MapPin, Box, PlaneTakeoff, Container, 
@@ -39,36 +39,18 @@ export default function Home() {
   const [settings, setSettings] = useState<any>({ exchangeRateUsdNgn: 1500, seaFreightRateUsd: 180, seaClearingRateNgn: 300000, airFreightRateUsd: 8, airClearingRateNgn: 15000 });
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, "settings", "pricing"));
+    const unsubscribe = onSnapshot(
+      doc(db, "settings", "pricing"),
+      (docSnap) => {
         if (docSnap.exists()) {
-          const data = docSnap.data();
-          setSettings(data);
-          if (freightType === "sea") {
-            setRateUsd(data.seaFreightRateUsd);
-            setRateNgn(data.seaClearingRateNgn);
-          } else {
-            setRateUsd(data.airFreightRateUsd);
-            setRateNgn(data.airClearingRateNgn);
-          }
-        } else {
-          const saved = localStorage.getItem("ddl_mock_settings");
-          if (saved) {
-             const data = JSON.parse(saved);
-             setSettings(data);
-             if (freightType === "sea") {
-               setRateUsd(data.seaFreightRateUsd);
-               setRateNgn(data.seaClearingRateNgn);
-             } else {
-               setRateUsd(data.airFreightRateUsd);
-               setRateNgn(data.airClearingRateNgn);
-             }
-          }
+          setSettings(docSnap.data());
         }
-      } catch (err) {}
-    };
-    fetchSettings();
+      },
+      (err) => {
+        console.error("Failed to subscribe to pricing settings:", err);
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -89,11 +71,6 @@ export default function Home() {
     }
     setError("");
     navigate(`/track/${trackingId.trim().toUpperCase()}`);
-  };
-
-  const handleDemoTrack = (demoId: string) => {
-    setTrackingId(demoId);
-    navigate(`/track/${demoId}`);
   };
 
   // Estimator Calculations
@@ -321,7 +298,7 @@ export default function Home() {
                       </div>
                       <input
                         type="text"
-                        placeholder="Enter DDL Tracking Code (e.g. DDL-2026-88002)"
+                        placeholder="Enter DDL Tracking Code (e.g. DDL-2026-12345)"
                         value={trackingId}
                         onChange={(e) => {
                           setTrackingId(e.target.value);
@@ -346,35 +323,6 @@ export default function Home() {
                       </p>
                     )}
                   </form>
-
-                  {/* Quick test parameters */}
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Test Shipments:</span>
-                    <button 
-                      onClick={() => handleDemoTrack("DDL-2026-88001")}
-                      type="button"
-                      className="px-2.5 py-1 bg-white/5 hover:bg-blue-600/20 border border-slate-100 text-[9px] font-mono text-slate-600 rounded-lg hover:text-blue-300 transition-all flex items-center gap-1"
-                    >
-                      <Ship className="w-2.5 h-2.5 text-blue-400" />
-                      88001 (Sea)
-                    </button>
-                    <button 
-                      onClick={() => handleDemoTrack("DDL-2026-88002")}
-                      type="button"
-                      className="px-2.5 py-1 bg-white/5 hover:bg-blue-600/20 border border-slate-100 text-[9px] font-mono text-slate-600 rounded-lg hover:text-blue-300 transition-all flex items-center gap-1"
-                    >
-                      <Ship className="w-2.5 h-2.5 text-blue-400" />
-                      88002 (Sea)
-                    </button>
-                    <button 
-                      onClick={() => handleDemoTrack("DDL-2026-88003")}
-                      type="button"
-                      className="px-2.5 py-1 bg-white/5 hover:bg-blue-600/20 border border-slate-100 text-[9px] font-mono text-slate-600 rounded-lg hover:text-blue-300 transition-all flex items-center gap-1"
-                    >
-                      <Truck className="w-2.5 h-2.5 text-emerald-400" />
-                      88003 (Cleared)
-                    </button>
-                  </div>
                 </div>
 
                 {/* Operator and client login hint */}

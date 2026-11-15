@@ -1,70 +1,99 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
-import { auth, db } from "../lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { collection, query, where, doc, onSnapshot } from "firebase/firestore";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { LogOut, Package, ArrowRight, ExternalLink, Download, FileText } from "lucide-react";
-import { Shipment } from "../types";
-import { getMockShipments } from "../lib/mockDb";
+import { PricingSettings, Shipment } from "../types";
 import { generateClientManifestPDF } from "../utils/pdfGenerator";
 import { toast } from "sonner";
 
+function getPhoneVariants(phone: string): string[] {
+  const raw = phone.trim();
+  const digits = raw.replace(/[^\d]/g, "");
+  const variants = new Set<string>();
+  if (raw) variants.add(raw);
+  if (digits) variants.add(digits);
+
+  let core = digits;
+  if (core.startsWith("234") && core.length > 3) {
+    core = core.slice(3);
+  } else if (core.startsWith("0") && core.length > 1) {
+    core = core.slice(1);
+  }
+
+  if (core) {
+    variants.add(core);
+    variants.add(`0${core}`);
+    variants.add(`234${core}`);
+    variants.add(`+234${core}`);
+  }
+
+  return Array.from(variants).slice(0, 10);
+}
+
 export default function ClientDashboard() {
-  const { dbUser, isMock, setMockMode } = useAuth();
+  const { dbUser } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<PricingSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        if (!isMock) {
-          const docSnap = await getDoc(doc(db, "settings", "pricing"));
-          if (docSnap.exists()) {
-            setSettings(docSnap.data());
-          }
-        } else {
-          const saved = localStorage.getItem("ddl_mock_settings");
-          if (saved) setSettings(JSON.parse(saved));
+    const unsubscribe = onSnapshot(
+      doc(db, "settings", "pricing"),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setSettings(docSnap.data() as PricingSettings);
         }
-      } catch (err) {}
-    };
-    fetchSettings();
-  }, [isMock]);
-
-  useEffect(() => {
-    const fetchMyShipments = async () => {
-      if (!dbUser?.phone_number) return;
-      try {
-        if (isMock) {
-          const allMocks = getMockShipments();
-          const data = allMocks.filter(s => s.phone_number === dbUser.phone_number);
-          data.sort((a, b) => b.created_at - a.created_at);
-          setShipments(data);
-        } else {
-          const q = query(
-            collection(db, "shipments"),
-            where("phone_number", "==", dbUser.phone_number)
-          );
-          const snapshot = await getDocs(q);
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
-          
-          // Sort in memory since Firestore requires composite index for where + orderby
-          data.sort((a, b) => b.created_at - a.created_at);
-          setShipments(data);
-        }
-      } catch (error) {
-        console.error("Error fetching shipments:", error);
-      } finally {
-        setLoading(false);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, "settings/pricing");
       }
-    };
+    );
+    return () => unsubscribe();
+  }, []);
 
-    fetchMyShipments();
-  }, [dbUser, isMock]);
+  useEffect(() => {
+    if (!dbUser?.phone_number) {
+      setShipments([]);
+      setLoading(false);
+      return;
+    }
+
+    const variants = getPhoneVariants(dbUser.phone_number);
+    if (variants.length === 0) {
+      setShipments([]);
+      setLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, "shipments"),
+      where("phone_number", "in", variants)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as Shipment[];
+
+        data.sort((a, b) => b.created_at - a.created_at);
+        setShipments(data);
+        setLoading(false);
+      },
+      (error) => {
+        setLoading(false);
+        handleFirestoreError(error, OperationType.LIST, "shipments");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [dbUser]);
 
   const getStatusColor = (status: string) => {
     if (status.includes("delivered")) return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
@@ -92,9 +121,10 @@ export default function ClientDashboard() {
             <div className="text-xs font-medium text-slate-900">{dbUser?.shipping_mark}</div>
             <div className="text-[10px] text-slate-500">{dbUser?.phone_number}</div>
           </div>
-          <button 
-            onClick={() => isMock ? setMockMode(null) : auth.signOut()}
+          <button
+            onClick={() => auth.signOut()}
             className="text-slate-500 hover:text-slate-700 transition-colors"
+            title="Sign out"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -105,7 +135,7 @@ export default function ClientDashboard() {
         <div className="mb-6 shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-sm font-medium text-slate-900">My Shipments</h1>
-            <p className="text-[10px] text-slate-600 mt-1">Track and manage your incoming cargo.</p>
+            <p className="text-[10px] text-slate-600 mt-1">Track and manage your incoming cargo in real time.</p>
           </div>
           {shipments.length > 0 && (
             <button
@@ -130,7 +160,7 @@ export default function ClientDashboard() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {shipments.map(shipment => (
+            {shipments.map((shipment) => (
               <div key={shipment.id} className="bg-white rounded-xl border border-slate-200 flex flex-col group hover:bg-white/50 transition-colors">
                 <div className="p-4 flex-1">
                   <div className="flex justify-between items-start mb-3">
@@ -167,14 +197,14 @@ export default function ClientDashboard() {
                   </div>
                 </div>
                 <div className="border-t border-slate-200 bg-slate-50/30 p-3 flex justify-between items-center rounded-b-xl group-hover:bg-slate-50/50 transition-colors">
-                  <Link 
+                  <Link
                     to={`/track/${shipment.tracking_id}`}
                     className="text-[10px] font-medium text-blue-400 flex items-center gap-1 hover:text-blue-300"
                   >
                     View Details <ArrowRight className="w-3 h-3" />
                   </Link>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={() => generateClientManifestPDF(shipment.shipping_mark || "UNMARKED", shipment.phone_number || "", [shipment], settings)}
                       className="text-slate-600 hover:text-blue-400 transition-colors flex items-center gap-1"
                       title="Download PDF Receipt / Note"
@@ -182,7 +212,7 @@ export default function ClientDashboard() {
                       <FileText className="w-3 h-3" />
                       <span className="text-[10px]">Receipt PDF</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/track/${shipment.tracking_id}`);
                         toast.success("Tracking link copied to clipboard!");

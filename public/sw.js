@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dd-logistics-v1';
+const CACHE_NAME = 'dd-logistics-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,6 +30,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (
+    event.request.method !== 'GET' ||
+    !event.request.url.startsWith(self.location.origin) ||
+    event.request.url.includes('/api/')
+  ) {
+    return;
+  }
+
   // Solve navigation in SPAs: redirect to index.html if request is navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(

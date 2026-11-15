@@ -1,42 +1,139 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == 'stephenmayowa112@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
-      // In this preview, we can designate users as admin based on a role, or we can just say if they are authenticated and we set their custom claims.
-      // Alternatively, reading the role from users collection:
-      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isBootstrappedAdmin() || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['role', 'phone_number', 'shipping_mark', 'is_verified']) &&
+        data.keys().hasOnly(['role', 'phone_number', 'shipping_mark', 'is_verified']) &&
+        data.role in ['admin', 'staff', 'client'] &&
+        data.phone_number is string && data.phone_number.size() <= 40 &&
+        data.shipping_mark is string && data.shipping_mark.size() > 0 && data.shipping_mark.size() <= 100 &&
+        data.is_verified is bool;
+    }
+
+    function isValidShipment(data) {
+      return data.keys().hasAll(['tracking_id', 'container_id', 'shipping_mark', 'phone_number', 'ctn', 'cbm', 'status', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly(['tracking_id', 'client_id', 'container_id', 'shipping_mark', 'phone_number', 'ctn', 'cbm', 'freight_usd_per_cbm', 'clearing_naira_per_cbm', 'status', 'created_at', 'updated_at']) &&
+        data.tracking_id is string && data.tracking_id.size() > 0 && data.tracking_id.size() <= 64 &&
+        data.container_id is string && data.container_id.size() > 0 && data.container_id.size() <= 64 &&
+        data.shipping_mark is string && data.shipping_mark.size() > 0 && data.shipping_mark.size() <= 128 &&
+        data.phone_number is string && data.phone_number.size() <= 40 &&
+        data.ctn is number && data.ctn >= 0 &&
+        data.cbm is number && data.cbm >= 0 &&
+        (!('client_id' in data) || (data.client_id is string && data.client_id.size() <= 128)) &&
+        (!('freight_usd_per_cbm' in data) || (data.freight_usd_per_cbm is number && data.freight_usd_per_cbm >= 0)) &&
+        (!('clearing_naira_per_cbm' in data) || (data.clearing_naira_per_cbm is number && data.clearing_naira_per_cbm >= 0)) &&
+        data.status in [
+          'received_china', 'shipped', 'in_transit_sea', 'in_transit_air',
+          'arrived_lagos', 'customs_clearing', 'cleared', 'ready_for_pickup',
+          'out_for_delivery', 'delivered'
+        ] &&
+        data.created_at is number &&
+        data.updated_at is number;
+    }
+
+    function isValidTrackingUpdate(data) {
+      return data.keys().hasAll(['shipment_id', 'status', 'note', 'created_at']) &&
+        data.keys().hasOnly(['shipment_id', 'status', 'note', 'created_at']) &&
+        data.shipment_id is string && data.shipment_id.size() > 0 && data.shipment_id.size() <= 128 &&
+        data.status in [
+          'received_china', 'shipped', 'in_transit_sea', 'in_transit_air',
+          'arrived_lagos', 'customs_clearing', 'cleared', 'ready_for_pickup',
+          'out_for_delivery', 'delivered'
+        ] &&
+        data.note is string && data.note.size() <= 500 &&
+        data.created_at is number;
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['exchangeRateUsdNgn', 'seaFreightRateUsd', 'seaClearingRateNgn', 'airFreightRateUsd', 'airClearingRateNgn']) &&
+        data.keys().hasOnly(['exchangeRateUsdNgn', 'seaFreightRateUsd', 'seaClearingRateNgn', 'airFreightRateUsd', 'airClearingRateNgn']) &&
+        data.exchangeRateUsdNgn is number && data.exchangeRateUsdNgn >= 0 &&
+        data.seaFreightRateUsd is number && data.seaFreightRateUsd >= 0 &&
+        data.seaClearingRateNgn is number && data.seaClearingRateNgn >= 0 &&
+        data.airFreightRateUsd is number && data.airFreightRateUsd >= 0 &&
+        data.airClearingRateNgn is number && data.airClearingRateNgn >= 0;
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+      allow get: if isValidId(userId) && isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isAuthenticated() && request.auth.uid == userId && isValidUser(incoming()) && (
+        isAdmin() || incoming().role == 'client'
+      );
+      allow update: if isValidId(userId) && isAuthenticated() && isValidUser(incoming()) && (
+        isAdmin() || (
+          request.auth.uid == userId &&
+          incoming().role == existing().role &&
+          incoming().is_verified == existing().is_verified
+        )
+      );
+      allow delete: if isValidId(userId) && isAdmin();
     }
 
     match /containers/{containerId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow get: if isValidId(containerId) && isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isValidId(containerId) && isAdmin();
     }
 
     match /shipments/{shipmentId} {
-      // Clients and guest users can read shipments for public tracking
-      allow read: if true;
-      allow write: if isAdmin();
+      // Clients and guest users can read shipments for public tracking & client dashboard
+      allow get: if isValidId(shipmentId);
+      allow list: if true;
+      allow create: if isValidId(shipmentId) && isAdmin() && isValidShipment(incoming());
+      allow update: if isValidId(shipmentId) && isAdmin() && isValidShipment(incoming()) &&
+        incoming().created_at == existing().created_at;
+      allow delete: if isValidId(shipmentId) && isAdmin();
     }
 
     match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow get: if isValidId(docId);
+      allow list: if true;
+      allow create, update: if isValidId(docId) && isAdmin() && isValidSettings(incoming());
+      allow delete: if isValidId(docId) && isAdmin();
     }
 
     match /tracking_updates/{updateId} {
-      allow read: if true; // We fetch these by server for public tracking or they are fetched by client
-      allow write: if isAdmin();
+      allow get: if isValidId(updateId);
+      allow list: if true;
+      allow create: if isValidId(updateId) && isAdmin() && isValidTrackingUpdate(incoming());
+      allow update: if isValidId(updateId) && isAdmin() && isValidTrackingUpdate(incoming());
+      allow delete: if isValidId(updateId) && isAdmin();
     }
   }
 }

@@ -2,86 +2,95 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { format } from "date-fns";
-import { Package, Search, Navigation, AlertCircle, ArrowLeft, MapPin, Box, Eye, Calendar, UserCheck } from "lucide-react";
+import { Package, Navigation, AlertCircle, ArrowLeft, Box, Eye, Calendar, UserCheck } from "lucide-react";
 import { Shipment, TrackingUpdate } from "../types";
-import { getMockShipments, getMockUpdates } from "../lib/mockDb";
-import { collection, query, where, getDocs, limit, orderBy } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { collection, query, where, limit, onSnapshot } from "firebase/firestore";
+import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 
 export default function PublicTracking() {
   const { trackingId } = useParams();
-  const [shipment, setShipment] = useState<Shipment & { updates: TrackingUpdate[] } | null>(null);
+  const [shipment, setShipment] = useState<(Shipment & { updates: TrackingUpdate[] }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchTracking = async () => {
-      try {
-        if (!trackingId) return;
+    if (!trackingId) {
+      setLoading(false);
+      setError("No tracking ID provided");
+      return;
+    }
 
-        // Query shipment by tracking_id directly from Firestore
-        const shipmentsRef = collection(db, "shipments");
-        const q = query(shipmentsRef, where("tracking_id", "==", trackingId), limit(1));
-        const snapshot = await getDocs(q);
+    setLoading(true);
+    setError("");
+    const normalizedId = trackingId.trim().toUpperCase();
+    let unsubscribeUpdates: (() => void) | null = null;
+
+    const shipmentsQ = query(
+      collection(db, "shipments"),
+      where("tracking_id", "==", normalizedId),
+      limit(1)
+    );
+
+    const unsubscribeShipment = onSnapshot(
+      shipmentsQ,
+      (snapshot) => {
+        if (unsubscribeUpdates) {
+          unsubscribeUpdates();
+          unsubscribeUpdates = null;
+        }
 
         if (snapshot.empty) {
-          throw new Error("Shipment not found");
+          setShipment(null);
+          setError("Shipment not found");
+          setLoading(false);
+          return;
         }
 
         const shipmentDoc = snapshot.docs[0];
-        const shipmentData = shipmentDoc.data();
+        const shipmentData = shipmentDoc.data() as Omit<Shipment, "id">;
 
-        // Query tracking updates for this shipment
-        const updatesRef = collection(db, "tracking_updates");
         const updatesQ = query(
-          updatesRef,
-          where("shipment_id", "==", shipmentDoc.id),
-          orderBy("created_at", "desc")
+          collection(db, "tracking_updates"),
+          where("shipment_id", "==", shipmentDoc.id)
         );
-        const updatesSnapshot = await getDocs(updatesQ);
-        const updates = updatesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as TrackingUpdate[];
 
-        setShipment({
-          id: shipmentDoc.id,
-          tracking_id: shipmentData.tracking_id,
-          client_id: shipmentData.client_id,
-          container_id: shipmentData.container_id,
-          shipping_mark: shipmentData.shipping_mark,
-          phone_number: shipmentData.phone_number,
-          ctn: shipmentData.ctn,
-          cbm: shipmentData.cbm,
-          freight_usd_per_cbm: shipmentData.freight_usd_per_cbm,
-          clearing_naira_per_cbm: shipmentData.clearing_naira_per_cbm,
-          status: shipmentData.status,
-          created_at: shipmentData.created_at,
-          updated_at: shipmentData.updated_at,
-          updates,
-        });
-        setError("");
-      } catch (err: any) {
-        console.warn("Direct Firestore tracking failed, falling back to mock DB:", err);
-        // Fallback to local storage mock database for quick-testing/bypasses
-        const mocks = getMockShipments();
-        const found = mocks.find(s => s.tracking_id.toUpperCase() === trackingId?.toUpperCase());
-        if (found) {
-          const allUpdates = getMockUpdates();
-          const updates = allUpdates.filter(u => u.shipment_id === found.id);
-          setShipment({
-            ...found,
-            updates
-          });
-          setError("");
-        } else {
-          setError(err.message || "Shipment not found");
-        }
-      } finally {
+        unsubscribeUpdates = onSnapshot(
+          updatesQ,
+          (updatesSnapshot) => {
+            const updates = updatesSnapshot.docs
+              .map((docSnap) => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+              })) as TrackingUpdate[];
+
+            updates.sort((a, b) => b.created_at - a.created_at);
+
+            setShipment({
+              id: shipmentDoc.id,
+              ...shipmentData,
+              updates,
+            });
+            setError("");
+            setLoading(false);
+          },
+          (err) => {
+            setError("Failed to load tracking timeline");
+            setLoading(false);
+            handleFirestoreError(err, OperationType.GET, "tracking_updates");
+          }
+        );
+      },
+      (err) => {
+        setError("Failed to locate shipment");
         setLoading(false);
+        handleFirestoreError(err, OperationType.GET, "shipments");
       }
+    );
+
+    return () => {
+      unsubscribeShipment();
+      if (unsubscribeUpdates) unsubscribeUpdates();
     };
-    if (trackingId) fetchTracking();
   }, [trackingId]);
 
   const getStatusColor = (status: string) => {
@@ -95,14 +104,14 @@ export default function PublicTracking() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-700 flex flex-col font-sans relative overflow-x-hidden">
       <Helmet>
-        <title>{trackingId ? `Tracking ${trackingId.toUpperCase()} - Deep Down Logistics` : 'Track Cargo - Deep Down Logistics'}</title>
-        <meta name="description" content={`Track the live status of your cargo from Guangzhou to Lagos. Real-time updates for shipment ${trackingId || ''}.`} />
+        <title>{trackingId ? `Tracking ${trackingId.toUpperCase()} - Deep Down Logistics` : "Track Cargo - Deep Down Logistics"}</title>
+        <meta name="description" content={`Track the live status of your cargo from Guangzhou to Lagos. Real-time updates for shipment ${trackingId || ""}.`} />
         <meta name="robots" content="noindex" />
       </Helmet>
-      
+
       {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
-      <div 
-        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
+      <div
+        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0"
       />
 
       {/* BACKGROUND LIQUID GLASS AMBIENT BLOBS */}
@@ -133,7 +142,6 @@ export default function PublicTracking() {
 
       {/* Main Console */}
       <main className="flex-grow max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full relative z-10">
-        
         <div className="mb-6 flex items-center justify-between">
           <Link to="/" className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-700 transition-colors">
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
@@ -163,12 +171,10 @@ export default function PublicTracking() {
           </div>
         ) : (
           <div className="space-y-6">
-            
-            {/* Mode illustration banner */}
             <div className="glass-panel rounded-3xl overflow-hidden shadow-2xl relative border border-slate-200 group h-40">
-              <img 
-                src="https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80" 
-                alt="Consignment transit mode" 
+              <img
+                src="https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
+                alt="Consignment transit mode"
                 className="w-full h-full object-cover opacity-60 group-hover:scale-[1.02] transition-transform duration-700"
                 referrerPolicy="no-referrer"
               />
@@ -186,7 +192,6 @@ export default function PublicTracking() {
               </div>
             </div>
 
-            {/* Core shipment card - Beautiful Glassmorphic layout */}
             <div className="glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
 
@@ -203,7 +208,6 @@ export default function PublicTracking() {
                 </div>
               </div>
 
-              {/* Grid of details */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 <div className="bg-white/50 p-3.5 rounded-2xl border border-slate-100 shadow-inner">
                   <p className="text-[9px] uppercase font-bold text-slate-500 mb-1 tracking-wider flex items-center gap-1">
@@ -211,7 +215,7 @@ export default function PublicTracking() {
                   </p>
                   <p className="text-sm font-bold text-slate-800 font-mono">{shipment.ctn} CTN</p>
                 </div>
-                
+
                 <div className="bg-white/50 p-3.5 rounded-2xl border border-slate-100 shadow-inner">
                   <p className="text-[9px] uppercase font-bold text-slate-500 mb-1 tracking-wider flex items-center gap-1">
                     <Eye className="w-3 h-3 text-indigo-400" /> Cargo Volume
@@ -235,7 +239,6 @@ export default function PublicTracking() {
               </div>
             </div>
 
-            {/* Tracking updates history */}
             <div className="glass-panel rounded-3xl overflow-hidden shadow-2xl">
               <div className="px-6 py-4 border-b border-slate-100 bg-white/[0.02] flex items-center justify-between">
                 <h3 className="text-xs font-display font-bold text-slate-900 flex items-center gap-2">
@@ -251,13 +254,11 @@ export default function PublicTracking() {
                   <div className="relative border-l-2 border-slate-100 ml-3 space-y-8 py-1.5">
                     {shipment.updates.map((update, index) => (
                       <div key={update.id} className="relative pl-7 group">
-                        
-                        {/* Timeline node */}
-                        <div className={`absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-transform duration-300 group-hover:scale-110 ${index === 0 ? 'bg-blue-500 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-white border-slate-200'}`} />
-                        
+                        <div className={`absolute -left-[7px] top-1 w-3.5 h-3.5 rounded-full border-2 transition-transform duration-300 group-hover:scale-110 ${index === 0 ? "bg-blue-500 border-blue-400 shadow-lg shadow-blue-500/20" : "bg-white border-slate-200"}`} />
+
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-white/30 p-4 rounded-2xl border border-white/[0.03] shadow-inner">
                           <div>
-                            <p className={`text-xs font-display font-bold uppercase tracking-wider ${index === 0 ? 'text-slate-900' : 'text-slate-600'}`}>
+                            <p className={`text-xs font-display font-bold uppercase tracking-wider ${index === 0 ? "text-slate-900" : "text-slate-600"}`}>
                               {update.status.replace(/_/g, " ")}
                             </p>
                             {update.note && (
@@ -270,17 +271,14 @@ export default function PublicTracking() {
                             {format(update.created_at, "MMM d, yyyy • h:mm a")}
                           </time>
                         </div>
-
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             </div>
-
           </div>
         )}
-
       </main>
 
       {/* Footer */}

@@ -2,16 +2,23 @@ import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { auth, db } from "../lib/firebase";
-import { collection, getDocs, getDoc, doc, writeBatch, setDoc, updateDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { collection, onSnapshot, doc, writeBatch, setDoc, updateDoc, query, orderBy } from "firebase/firestore";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { LogOut, Upload, Package, ArrowRight, Search, Activity, FileSpreadsheet, Download, CheckCircle, Settings, Pencil, Check, X, Plus, Phone } from "lucide-react";
+import { LogOut, Package, Search, FileSpreadsheet, Download, CheckCircle, Settings, Pencil, Check, X, Plus, Phone } from "lucide-react";
 import { PricingSettings, Shipment, ShipmentStatus } from "../types";
-import { getMockShipments, updateMockShipmentStatus, importMockManifest, updateMockShipmentPhone, createMockShipment } from "../lib/mockDb";
 import { generateAdminManifestPDF, generateClientManifestPDF } from "../utils/pdfGenerator";
 import { generatePackingListImage } from "../utils/packingListImageGenerator";
 import { parseManifestRows, readManifestFile } from "../utils/manifestParser";
+
+const DEFAULT_SETTINGS: PricingSettings = {
+  exchangeRateUsdNgn: 1500,
+  seaFreightRateUsd: 180,
+  seaClearingRateNgn: 300000,
+  airFreightRateUsd: 8,
+  airClearingRateNgn: 15000,
+};
 
 // Raw base64 of a Blob, without the "data:image/png;base64," prefix.
 function blobToBase64(blob: Blob): Promise<string> {
@@ -45,7 +52,7 @@ async function sendPackingListWhatsApp(shipment: Shipment, status: string, setti
 }
 
 export default function AdminDashboard() {
-  const { dbUser, isMock, setMockMode } = useAuth();
+  const { dbUser } = useAuth();
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -80,7 +87,7 @@ export default function AdminDashboard() {
   });
 
   // Settings state
-  const [settings, setSettings] = useState<any>({ exchangeRateUsdNgn: 1500, seaFreightRateUsd: 180, seaClearingRateNgn: 300000, airFreightRateUsd: 8, airClearingRateNgn: 15000 });
+  const [settings, setSettings] = useState<PricingSettings>(DEFAULT_SETTINGS);
   const [testWhatsAppPhone, setTestWhatsAppPhone] = useState("");
   const [testingWhatsApp, setTestingWhatsApp] = useState(false);
 
@@ -89,25 +96,32 @@ export default function AdminDashboard() {
   const [manifestModal, setManifestModal] = useState<{ isOpen: boolean, containerId: string, shipments: Shipment[] }>({ isOpen: false, containerId: "", shipments: [] });
   const [manifestOptions, setManifestOptions] = useState({ loadedDate: "", departureDate: "", exchangeRate: "", freightRate: "", clearingRate: "" });
 
-  
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        if (!isMock) {
-          const docSnap = await getDoc(doc(db, "settings", "pricing"));
-          if (docSnap.exists()) {
-            setSettings(docSnap.data());
-          }
+    const settingsRef = doc(db, "settings", "pricing");
+    const unsubscribe = onSnapshot(
+      settingsRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as Partial<PricingSettings>;
+          setSettings({
+            exchangeRateUsdNgn: Number(data.exchangeRateUsdNgn) || DEFAULT_SETTINGS.exchangeRateUsdNgn,
+            seaFreightRateUsd: Number(data.seaFreightRateUsd) || DEFAULT_SETTINGS.seaFreightRateUsd,
+            seaClearingRateNgn: Number(data.seaClearingRateNgn) || DEFAULT_SETTINGS.seaClearingRateNgn,
+            airFreightRateUsd: Number(data.airFreightRateUsd) || DEFAULT_SETTINGS.airFreightRateUsd,
+            airClearingRateNgn: Number(data.airClearingRateNgn) || DEFAULT_SETTINGS.airClearingRateNgn,
+          });
         } else {
-          const saved = localStorage.getItem("ddl_mock_settings");
-          if (saved) setSettings(JSON.parse(saved));
+          setDoc(settingsRef, DEFAULT_SETTINGS).catch((err) =>
+            console.error("Failed to initialize default pricing settings:", err)
+          );
         }
-      } catch (err) {
-        console.error("Failed to fetch settings", err);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.GET, "settings/pricing");
       }
-    };
-    fetchSettings();
-  }, [isMock]);
+    );
+    return () => unsubscribe();
+  }, []);
 
   const testWhatsApp = async () => {
     if (!testWhatsAppPhone) return toast.error("Please enter a phone number");
@@ -142,61 +156,59 @@ export default function AdminDashboard() {
 
   const saveSettings = async () => {
     setSavingSettings(true);
+    const payload: PricingSettings = {
+      exchangeRateUsdNgn: Math.max(0, Number(settings.exchangeRateUsdNgn) || 0),
+      seaFreightRateUsd: Math.max(0, Number(settings.seaFreightRateUsd) || 0),
+      seaClearingRateNgn: Math.max(0, Number(settings.seaClearingRateNgn) || 0),
+      airFreightRateUsd: Math.max(0, Number(settings.airFreightRateUsd) || 0),
+      airClearingRateNgn: Math.max(0, Number(settings.airClearingRateNgn) || 0),
+    };
     try {
-      if (!isMock) {
-        await setDoc(doc(db, "settings", "pricing"), settings);
-      } else {
-        localStorage.setItem("ddl_mock_settings", JSON.stringify(settings));
-      }
+      await setDoc(doc(db, "settings", "pricing"), payload);
       toast.success("Settings saved successfully");
     } catch (err) {
       toast.error("Failed to save settings");
+      handleFirestoreError(err, OperationType.WRITE, "settings/pricing");
     } finally {
       setSavingSettings(false);
     }
   };
 
-  const fetchShipments = async () => {
-    try {
-      if (isMock) {
-        const data = getMockShipments();
-        setShipments(data);
-      } else {
-        const q = query(collection(db, "shipments"), orderBy("created_at", "desc"));
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Shipment));
-        setShipments(data);
-      }
-    } catch (error) {
-      console.error("Error fetching shipments:", error);
-      toast.error("Failed to load shipments");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchShipments();
+    const q = query(collection(db, "shipments"), orderBy("created_at", "desc"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        })) as Shipment[];
+        setShipments(data);
+        setLoading(false);
+      },
+      (error) => {
+        toast.error("Failed to load shipments");
+        setLoading(false);
+        handleFirestoreError(error, OperationType.LIST, "shipments");
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   const handleSavePhone = async (shipmentId: string) => {
     setSavingPhone(true);
-    const cleaned = editingPhoneValue.trim();
+    const cleaned = editingPhoneValue.trim().slice(0, 40);
+    const path = `shipments/${shipmentId}`;
     try {
-      if (isMock) {
-        updateMockShipmentPhone(shipmentId, cleaned);
-      } else {
-        await updateDoc(doc(db, "shipments", shipmentId), {
-          phone_number: cleaned,
-          updated_at: Date.now(),
-        });
-      }
+      await updateDoc(doc(db, "shipments", shipmentId), {
+        phone_number: cleaned,
+        updated_at: Date.now(),
+      });
       toast.success(cleaned ? "Customer WhatsApp number updated" : "Phone number cleared");
       setEditingPhoneId(null);
-      fetchShipments();
     } catch (error) {
-      console.error("Failed to update phone number:", error);
       toast.error("Failed to update phone number");
+      handleFirestoreError(error, OperationType.UPDATE, path);
     } finally {
       setSavingPhone(false);
     }
@@ -213,56 +225,41 @@ export default function AdminDashboard() {
 
     setCreatingShipment(true);
     try {
-      const ctn = parseInt(newShipmentForm.ctn, 10) || 1;
-      const cbm = parseFloat(newShipmentForm.cbm) || 0.1;
-      const freightUsd = newShipmentForm.freight_usd_per_cbm ? parseFloat(newShipmentForm.freight_usd_per_cbm) : undefined;
-      const clearingNgn = newShipmentForm.clearing_naira_per_cbm ? parseFloat(newShipmentForm.clearing_naira_per_cbm) : undefined;
+      const ctn = Math.max(0, parseInt(newShipmentForm.ctn, 10) || 1);
+      const cbm = Math.max(0, parseFloat(newShipmentForm.cbm) || 0.1);
+      const freightUsd = newShipmentForm.freight_usd_per_cbm ? Math.max(0, parseFloat(newShipmentForm.freight_usd_per_cbm)) : undefined;
+      const clearingNgn = newShipmentForm.clearing_naira_per_cbm ? Math.max(0, parseFloat(newShipmentForm.clearing_naira_per_cbm)) : undefined;
 
-      let createdShipment: Shipment;
+      const trackingId = `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      const shipmentRef = doc(collection(db, "shipments"));
+      const now = Date.now();
+      const shipmentData: Omit<Shipment, "id"> = {
+        tracking_id: trackingId,
+        container_id: newShipmentForm.container_id.trim().slice(0, 64),
+        shipping_mark: newShipmentForm.shipping_mark.trim().slice(0, 128),
+        phone_number: newShipmentForm.phone_number.trim().slice(0, 40),
+        ctn,
+        cbm,
+        ...(freightUsd !== undefined && !isNaN(freightUsd) ? { freight_usd_per_cbm: freightUsd } : {}),
+        ...(clearingNgn !== undefined && !isNaN(clearingNgn) ? { clearing_naira_per_cbm: clearingNgn } : {}),
+        status: newShipmentForm.status,
+        created_at: now,
+        updated_at: now,
+      };
 
-      if (isMock) {
-        createdShipment = createMockShipment({
-          container_id: newShipmentForm.container_id,
-          shipping_mark: newShipmentForm.shipping_mark,
-          phone_number: newShipmentForm.phone_number,
-          ctn,
-          cbm,
-          freight_usd_per_cbm: freightUsd,
-          clearing_naira_per_cbm: clearingNgn,
-          status: newShipmentForm.status,
-        });
-      } else {
-        const trackingId = `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-        const shipmentRef = doc(collection(db, "shipments"));
-        const now = Date.now();
-        const shipmentData: Omit<Shipment, "id"> = {
-          tracking_id: trackingId,
-          container_id: newShipmentForm.container_id.trim(),
-          shipping_mark: newShipmentForm.shipping_mark.trim(),
-          phone_number: newShipmentForm.phone_number.trim(),
-          ctn,
-          cbm,
-          ...(freightUsd ? { freight_usd_per_cbm: freightUsd } : {}),
-          ...(clearingNgn ? { clearing_naira_per_cbm: clearingNgn } : {}),
-          status: newShipmentForm.status,
-          created_at: now,
-          updated_at: now,
-        };
+      const batch = writeBatch(db);
+      batch.set(shipmentRef, shipmentData);
 
-        const batch = writeBatch(db);
-        batch.set(shipmentRef, shipmentData);
+      const updateRef = doc(collection(db, "tracking_updates"));
+      batch.set(updateRef, {
+        shipment_id: shipmentRef.id,
+        status: newShipmentForm.status,
+        note: `Shipment manually created for container ${shipmentData.container_id}`.slice(0, 500),
+        created_at: now,
+      });
 
-        const updateRef = doc(collection(db, "tracking_updates"));
-        batch.set(updateRef, {
-          shipment_id: shipmentRef.id,
-          status: newShipmentForm.status,
-          note: `Shipment manually created for container ${shipmentData.container_id}`,
-          created_at: now,
-        });
-
-        await batch.commit();
-        createdShipment = { id: shipmentRef.id, ...shipmentData };
-      }
+      await batch.commit();
+      const createdShipment: Shipment = { id: shipmentRef.id, ...shipmentData };
 
       toast.success(`Shipment ${createdShipment.tracking_id} added`);
       setIsAddModalOpen(false);
@@ -276,14 +273,13 @@ export default function AdminDashboard() {
         clearing_naira_per_cbm: "",
         status: "received_china",
       });
-      fetchShipments();
 
       if (createdShipment.status === "shipped" && createdShipment.phone_number) {
         notifyStatusByWhatsApp(createdShipment, "shipped");
       }
     } catch (error) {
-      console.error("Failed to create shipment:", error);
       toast.error("Failed to create shipment");
+      handleFirestoreError(error, OperationType.WRITE, "shipments");
     } finally {
       setCreatingShipment(false);
     }
@@ -295,37 +291,52 @@ export default function AdminDashboard() {
     if (!file) return;
 
     setUploading(true);
+    let parsedRows: ReturnType<typeof parseManifestRows>["shipments"] = [];
     try {
       const { shipments: rows } = parseManifestRows(await readManifestFile(file));
-
-      if (isMock) {
-        importMockManifest(rows);
-      } else {
-        const batch = writeBatch(db);
-        for (const row of rows) {
-          const shipmentRef = doc(collection(db, "shipments"));
-          batch.set(shipmentRef, {
-            ...row,
-            tracking_id: `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-            status: "received_china",
-            created_at: Date.now(),
-            updated_at: Date.now(),
-          });
-          batch.set(doc(collection(db, "tracking_updates")), {
-            shipment_id: shipmentRef.id,
-            status: "received_china",
-            note: `Manifest imported for container ${row.container_id}`,
-            created_at: Date.now(),
-          });
-        }
-        await batch.commit();
-      }
-
-      toast.success(`Imported ${rows.length} shipments for container ${rows[0].container_id}`);
-      fetchShipments();
+      parsedRows = rows;
     } catch (error) {
-      console.error("Import error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to import manifest");
+      console.error("Manifest parse error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to parse manifest file");
+      setUploading(false);
+      input.value = "";
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+      const now = Date.now();
+      for (const row of parsedRows) {
+        const shipmentRef = doc(collection(db, "shipments"));
+        const sanitizedRow = {
+          container_id: String(row.container_id || "UNKNOWN").trim().slice(0, 64),
+          shipping_mark: String(row.shipping_mark || "").trim().slice(0, 128),
+          phone_number: String(row.phone_number || "").trim().slice(0, 40),
+          ctn: Math.max(0, Number(row.ctn) || 0),
+          cbm: Math.max(0, Number(row.cbm) || 0),
+          ...(row.freight_usd_per_cbm !== undefined ? { freight_usd_per_cbm: Math.max(0, Number(row.freight_usd_per_cbm) || 0) } : {}),
+          ...(row.clearing_naira_per_cbm !== undefined ? { clearing_naira_per_cbm: Math.max(0, Number(row.clearing_naira_per_cbm) || 0) } : {}),
+        };
+        batch.set(shipmentRef, {
+          ...sanitizedRow,
+          tracking_id: `DDL-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+          status: "received_china",
+          created_at: now,
+          updated_at: now,
+        });
+        batch.set(doc(collection(db, "tracking_updates")), {
+          shipment_id: shipmentRef.id,
+          status: "received_china",
+          note: `Manifest imported for container ${sanitizedRow.container_id}`.slice(0, 500),
+          created_at: now,
+        });
+      }
+      await batch.commit();
+
+      toast.success(`Imported ${parsedRows.length} shipments for container ${parsedRows[0].container_id}`);
+    } catch (error) {
+      toast.error("Failed to save imported manifest to Firestore");
+      handleFirestoreError(error, OperationType.WRITE, "shipments");
     } finally {
       setUploading(false);
       input.value = "";
@@ -367,27 +378,13 @@ export default function AdminDashboard() {
   const updateStatus = async (shipmentId: string, newStatus: string) => {
     const shipment = shipments.find(s => s.id === shipmentId);
 
-    if (isMock) {
-      try {
-        updateMockShipmentStatus(shipmentId, newStatus as any);
-        toast.success("Status updated");
-        fetchShipments();
-        if (shipment) {
-          notifyStatusByWhatsApp(shipment, newStatus);
-        }
-      } catch (error) {
-        toast.error("Failed to update status");
-      }
-      return;
-    }
-
     try {
       const batch = writeBatch(db);
-      
+      const now = Date.now();
       const shipmentRef = doc(db, "shipments", shipmentId);
-      batch.update(shipmentRef, { 
+      batch.update(shipmentRef, {
         status: newStatus,
-        updated_at: Date.now()
+        updated_at: now,
       });
 
       const updateRef = doc(collection(db, "tracking_updates"));
@@ -395,18 +392,18 @@ export default function AdminDashboard() {
         shipment_id: shipmentId,
         status: newStatus,
         note: `Status updated by Admin`,
-        created_at: Date.now()
+        created_at: now,
       });
 
       await batch.commit();
       toast.success("Status updated");
-      fetchShipments();
 
       if (shipment) {
         notifyStatusByWhatsApp(shipment, newStatus);
       }
     } catch (error) {
       toast.error("Failed to update status");
+      handleFirestoreError(error, OperationType.UPDATE, `shipments/${shipmentId}`);
     }
   };
 
@@ -414,26 +411,15 @@ export default function AdminDashboard() {
     const shipmentsInContainer = shipments.filter(s => s.container_id === containerId);
     if (shipmentsInContainer.length === 0) return;
 
-    if (isMock) {
-      try {
-        shipmentsInContainer.forEach(s => updateMockShipmentStatus(s.id, newStatus as any));
-        toast.success(`Updated ${shipmentsInContainer.length} shipments`);
-        fetchShipments();
-        shipmentsInContainer.forEach(s => notifyStatusByWhatsApp(s, newStatus));
-      } catch (error) {
-        toast.error("Failed to update container status");
-      }
-      return;
-    }
-
     try {
       const batch = writeBatch(db);
-      
+      const now = Date.now();
+
       shipmentsInContainer.forEach(shipment => {
         const shipmentRef = doc(db, "shipments", shipment.id);
-        batch.update(shipmentRef, { 
+        batch.update(shipmentRef, {
           status: newStatus,
-          updated_at: Date.now()
+          updated_at: now,
         });
 
         const updateRef = doc(collection(db, "tracking_updates"));
@@ -441,19 +427,19 @@ export default function AdminDashboard() {
           shipment_id: shipment.id,
           status: newStatus,
           note: `Container status updated by Admin`,
-          created_at: Date.now()
+          created_at: now,
         });
       });
 
       await batch.commit();
       toast.success(`Updated ${shipmentsInContainer.length} shipments`);
-      fetchShipments();
 
       shipmentsInContainer.forEach(shipment => {
         notifyStatusByWhatsApp(shipment, newStatus);
       });
     } catch (error) {
       toast.error("Failed to update container status");
+      handleFirestoreError(error, OperationType.UPDATE, "shipments");
     }
   };
 
@@ -493,8 +479,9 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-4">
           <span className="text-xs font-medium text-slate-600 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
           <button 
-            onClick={() => isMock ? setMockMode(null) : auth.signOut()}
+            onClick={() => auth.signOut()}
             className="text-slate-500 hover:text-slate-700 transition-colors"
+            title="Sign out"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -540,7 +527,7 @@ export default function AdminDashboard() {
                 </button>
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                This will send a mock "Shipped" status update using the template configured in WHATSAPP_TEMPLATE_NAME.
+                This will send a sample "Shipped" status update using the template configured in WHATSAPP_TEMPLATE_NAME.
               </p>
             </div>
             <h2 className="text-lg font-semibold text-slate-900 mb-4">Pricing & Calculator Settings</h2>

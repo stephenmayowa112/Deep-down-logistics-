@@ -1,14 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { auth, db } from "../lib/firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  browserPopupRedirectResolver,
+  signOut,
+} from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
-import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight, Shield } from "lucide-react";
+import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
+const ADMIN_EMAILS = ["stephenmayowa112@gmail.com"];
+
+function resolveRoleForEmail(email?: string | null): "admin" | "client" {
+  if (!email) return "client";
+  const normalized = email.toLowerCase().trim();
+  if (ADMIN_EMAILS.includes(normalized) || normalized.includes("admin")) {
+    return "admin";
+  }
+  return "client";
+}
+
 export default function Login() {
-  const { user, dbUser, loading: authLoading, setMockMode } = useAuth();
+  const { user, dbUser, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +34,7 @@ export default function Login() {
   const [shippingMark, setShippingMark] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const popupInFlightRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,6 +42,12 @@ export default function Login() {
       navigate("/dashboard");
     }
   }, [user, dbUser, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user && !dbUser && resolveRoleForEmail(user.email) === "admin" && !shippingMark) {
+      setShippingMark("ADMIN");
+    }
+  }, [user, dbUser, shippingMark]);
 
   if (authLoading) return <div className="h-screen bg-slate-50" />;
 
@@ -33,12 +58,10 @@ export default function Login() {
           <title>Complete Profile - Deep Down Logistics</title>
           <meta name="robots" content="noindex" />
         </Helmet>
-        {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
-        <div 
-          className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
+        <div
+          className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0"
         />
 
-        {/* Background liquid blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-600/10 blur-[100px] pointer-events-none liquid-blob-1" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-600/10 blur-[100px] pointer-events-none liquid-blob-2" />
 
@@ -52,37 +75,42 @@ export default function Login() {
             </h2>
           </Link>
           <p className="mt-1 text-center text-[10px] text-slate-500 tracking-wider uppercase font-semibold">
-            China to Nigeria Cargo Cargo Logistics
+            China to Nigeria Cargo Logistics
           </p>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 relative z-10">
           <div className="glass-panel py-8 px-6 sm:rounded-2xl sm:px-8 shadow-2xl">
-            <form className="space-y-4" onSubmit={async (e) => {
-              e.preventDefault();
-              setLoading(true);
-              setError("");
-              try {
-                const role = user.email?.includes("admin") ? "admin" : "client";
-                await setDoc(doc(db, "users", user.uid), {
-                  role,
-                  phone_number: phoneNumber,
-                  shipping_mark: shippingMark.toUpperCase(),
-                  is_verified: true,
-                });
-                navigate("/dashboard");
-              } catch (err: any) {
-                setError(err.message || "Failed to complete profile.");
-              } finally {
-                setLoading(false);
-              }
-            }}>
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError("");
+                const path = `users/${user.uid}`;
+                try {
+                  const role = resolveRoleForEmail(user.email);
+                  await setDoc(doc(db, "users", user.uid), {
+                    role,
+                    phone_number: phoneNumber.trim(),
+                    shipping_mark: shippingMark.trim().toUpperCase(),
+                    is_verified: true,
+                  });
+                  navigate("/dashboard");
+                } catch (err: any) {
+                  setError(err.message || "Failed to complete profile.");
+                  handleFirestoreError(err, OperationType.WRITE, path);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
               {error && (
                 <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-[10px] font-semibold border border-red-500/15">
                   {error}
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Phone Number</label>
                 <div className="relative">
@@ -94,7 +122,8 @@ export default function Login() {
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                    placeholder="e.g. 08031234567"
+                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                   />
                 </div>
               </div>
@@ -111,7 +140,7 @@ export default function Login() {
                     value={shippingMark}
                     onChange={(e) => setShippingMark(e.target.value)}
                     placeholder="e.g. KENNEDY"
-                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
+                    className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
                   />
                 </div>
               </div>
@@ -141,6 +170,48 @@ export default function Login() {
     );
   }
 
+  const formatAuthError = (err: any, fallback: string) => {
+    const code = err?.code || "";
+    switch (code) {
+      case "auth/popup-blocked":
+        return "Sign-in popup was blocked by your browser. Please allow popups for this site or sign in with email and password.";
+      case "auth/popup-closed-by-user":
+      case "auth/cancelled-popup-request":
+        return "Google sign-in was cancelled before completing.";
+      case "auth/unauthorized-domain":
+        return "This domain is not authorized for Google Sign-In in Firebase Console.";
+      case "auth/web-storage-unsupported":
+        return "Browser storage is blocked in this context (try opening the app in a new tab or enabling cookies/storage).";
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Invalid email or password.";
+      case "auth/email-already-in-use":
+        return "An account with this email already exists.";
+      default:
+        return err?.message || fallback;
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (popupInFlightRef.current || loading) return;
+    popupInFlightRef.current = true;
+    setError("");
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+    } catch (err: any) {
+      if (!auth.currentUser) {
+        setError(formatAuthError(err, "Google sign-in failed."));
+      }
+    } finally {
+      popupInFlightRef.current = false;
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -152,19 +223,19 @@ export default function Login() {
         navigate("/dashboard");
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const role = email.includes("admin") ? "admin" : "client";
+        const role = resolveRoleForEmail(email);
 
         await setDoc(doc(db, "users", userCredential.user.uid), {
           role,
-          phone_number: phoneNumber,
-          shipping_mark: shippingMark.toUpperCase(),
+          phone_number: phoneNumber.trim(),
+          shipping_mark: shippingMark.trim().toUpperCase(),
           is_verified: true,
         });
-        
+
         navigate("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+      setError(formatAuthError(err, "Authentication failed."));
     } finally {
       setLoading(false);
     }
@@ -177,12 +248,10 @@ export default function Login() {
         <meta name="description" content="Access your personalized client dashboard at Deep Down Logistics to manage manifests, track your consolidated cargo, and estimate costs." />
         <meta name="robots" content="index, follow" />
       </Helmet>
-      {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
-      <div 
-        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
+      <div
+        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0"
       />
 
-      {/* Background liquid blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] rounded-full bg-blue-600/10 blur-[100px] pointer-events-none liquid-blob-1" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-600/10 blur-[100px] pointer-events-none liquid-blob-2" />
 
@@ -208,7 +277,7 @@ export default function Login() {
                 {error}
               </div>
             )}
-            
+
             <div>
               <label className="block text-[10px] font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email address</label>
               <div className="relative">
@@ -238,7 +307,8 @@ export default function Login() {
                       required
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
+                      placeholder="e.g. 08031234567"
+                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all shadow-inner"
                     />
                   </div>
                 </div>
@@ -254,7 +324,7 @@ export default function Login() {
                       value={shippingMark}
                       onChange={(e) => setShippingMark(e.target.value)}
                       placeholder="e.g. SKYFALL"
-                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-600 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
+                      className="block w-full pl-9 pr-3 py-2 bg-white border border-slate-100 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500/80 focus:outline-none focus:ring-1 focus:ring-blue-500/10 transition-all uppercase shadow-inner"
                     />
                   </div>
                 </div>
@@ -289,45 +359,38 @@ export default function Login() {
             </div>
           </form>
 
-          <div className="mt-5 text-center">
+          <div className="mt-4">
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-[10px] uppercase">
+                <span className="bg-white/80 px-2 text-slate-400 font-semibold tracking-wider">Or</span>
+              </div>
+            </div>
             <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-[10px] text-blue-400 hover:text-blue-300 font-bold tracking-wide uppercase transition-colors"
+              type="button"
+              disabled={loading}
+              onClick={handleGoogleSignIn}
+              className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
             >
-              {isLogin ? "Create custom client portal account" : "Back to gateway sign-in"}
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z" />
+                <path fill="#34A853" d="M12 24c3.3 0 6.08-1.09 8.1-2.96l-3.88-3.05c-1.1.74-2.51 1.18-4.22 1.18-3.24 0-5.99-2.19-6.97-5.13H1.05v3.14C3.06 21.17 7.21 24 12 24Z" />
+                <path fill="#FBBC05" d="M5.03 14.04c-.25-.74-.39-1.54-.39-2.36 0-.82.14-1.62.39-2.36V6.18H1.05C.38 7.52 0 9.02 0 10.68s.38 3.16 1.05 4.5l3.98-1.14Z" />
+                <path fill="#EA4335" d="M12 4.75c1.79 0 3.4.62 4.67 1.82l3.5-3.5C18.07 1.19 15.3 0 12 0 7.21 0 3.06 2.83 1.05 6.86l3.98 3.14c.98-2.94 3.73-5.25 6.97-5.25Z" />
+              </svg>
+              Continue with Google
             </button>
           </div>
 
-          <div className="mt-8 pt-5 border-t border-slate-100 text-center">
-            <p className="text-[10px] text-slate-500 uppercase font-extrabold tracking-widest mb-3.5 flex items-center justify-center gap-1">
-              <Shield className="w-3.5 h-3.5 text-blue-500/75" />
-              Developer Bypass Console
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMockMode("admin");
-                  navigate("/dashboard");
-                }}
-                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-white"
-              >
-                Admin Gateway
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMockMode("client");
-                  navigate("/dashboard");
-                }}
-                className="clay-btn-slate py-2.5 px-3 rounded-xl text-[10px] font-bold tracking-wide uppercase transition-all hover:bg-white"
-              >
-                Client Gateway
-              </button>
-            </div>
-            <p className="mt-3 text-[9px] text-slate-500 italic leading-normal">
-              Bypasses network rules to instantly debug operations inside the sandboxed container preview.
-            </p>
+          <div className="mt-5 text-center">
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-[10px] text-blue-500 hover:text-blue-600 font-bold tracking-wide uppercase transition-colors"
+            >
+              {isLogin ? "Create custom client portal account" : "Back to gateway sign-in"}
+            </button>
           </div>
         </div>
       </div>
