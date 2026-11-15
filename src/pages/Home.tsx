@@ -856,6 +856,21 @@ export default function Home() {
           )}
         </section>
 
+        {/* Portal Purpose & Compliance Notice (Visible on Homepage for Users & Google Verification) */}
+        <section aria-label="About Deep Down Logistics Portal" className="pb-12 sm:pb-16">
+          <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
+            <p className="text-[12px] font-semibold tracking-[0.12em] text-[#0A54E1] uppercase mb-2">
+              ABOUT THIS APPLICATION
+            </p>
+            <h2 className="font-bold text-xl sm:text-2xl tracking-[-0.02em] text-[#0B1220] mb-2">
+              Commercial Air &amp; Ocean Freight Tracking Portal
+            </h2>
+            <p className="text-sm text-[#4B5565] m-0 leading-relaxed">
+              <strong>Deep Down Logistics</strong> (<a href="https://deepdownlogistics.com" className="text-[#0A54E1] hover:underline">deepdownlogistics.com</a>) is a dedicated commercial logistics and shipment management portal operated by Deep Down Logistics Limited for transporting commercial cargo from Guangzhou, China to Lagos, Nigeria. Customers sign in with Google Sign-In or email strictly to authenticate their identity, view their assigned Shipping Mark manifests, calculate freight volume (CBM), and receive real-time cargo status updates. This platform does not provide AI media or image-generation features and complies fully with the Google APIs Terms of Service and Google API Services User Data Policy.
+            </p>
+          </div>
+        </section>
+
         {/* Footer */}
         <footer
           id="contact"

@@ -96,7 +96,7 @@ export default function PrivacyPolicy() {
               <li>Send automated WhatsApp or email notifications regarding your shipment status and freight invoices.</li>
             </ul>
             <p className="text-[#4B5565]">
-              Our use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. We never sell, rent, or trade your personal data to third parties for advertising or marketing.
+              Our use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements, as well as the Google APIs Terms of Service. Deep Down Logistics is strictly a commercial cargo shipping and shipment-tracking portal—we do not provide AI image or media generation features and do not use any Google APIs to generate or process synthetic media or non-consensual imagery. We never sell, rent, or trade your personal data to third parties for advertising or marketing.
             </p>
           </section>
 
