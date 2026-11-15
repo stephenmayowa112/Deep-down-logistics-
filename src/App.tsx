@@ -12,6 +12,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import ClientDashboard from "./pages/ClientDashboard";
 import PublicTracking from "./pages/PublicTracking";
 import PackingListPreview from "./pages/PackingListPreview";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import { Toaster } from "sonner";
 
 const ProtectedRoute = ({ children, allowedRole }: { children: React.ReactNode, allowedRole?: "admin" | "client" }) => {
@@ -43,6 +45,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="/track/:trackingId" element={<PublicTracking />} />
           <Route path="/dev/packing-list-preview" element={<PackingListPreview />} />
           <Route 

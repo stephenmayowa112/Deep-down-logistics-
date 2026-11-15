@@ -891,6 +891,8 @@ export default function Home() {
               <a href="#track" className="hover:text-[#0A54E1]">Cargo tracking</a>
               <a href="#calculator" className="hover:text-[#0A54E1]">CBM calculator</a>
               <Link to="/login" className="hover:text-[#0A54E1]">Client portal</Link>
+              <Link to="/privacy" className="hover:text-[#0A54E1]">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-[#0A54E1]">Terms of Service</Link>
             </div>
           </div>
 

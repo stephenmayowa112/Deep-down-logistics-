@@ -399,6 +399,16 @@ export default function Login() {
               {isLogin ? "Create custom client portal account" : "Back to gateway sign-in"}
             </button>
           </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-200/70 flex items-center justify-center gap-4 text-xs text-slate-500">
+            <Link to="/privacy" className="hover:text-blue-600 transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-blue-600 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </div>
