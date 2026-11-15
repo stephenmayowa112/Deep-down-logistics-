@@ -176,3 +176,304 @@ body {
 .liquid-gloss-shine:hover::after {
   left: 140%;
 }
+
+/* Minimal Homepage Redesign Animations & Utilities */
+html {
+  scroll-behavior: smooth;
+}
+
+summary {
+  list-style: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary:hover {
+  color: #0A54E1;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes travel {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 14px);
+  }
+}
+
+@keyframes dash {
+  to {
+    background-position: 24px 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(10, 84, 225, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(10, 84, 225, 0);
+  }
+}
+
+.rise {
+  animation: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.d1 { animation-delay: 0.1s; }
+.d2 { animation-delay: 0.25s; }
+.d3 { animation-delay: 0.4s; }
+.d4 { animation-delay: 0.55s; }
+
+.route {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 40px auto 0;
+  max-width: 640px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.route .line {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, #9DB7EE 0 8px, transparent 8px 16px);
+  background-size: 24px 2px;
+  animation: dash 1s linear infinite;
+}
+.route .dot {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0A54E1;
+  animation: travel 4s ease-in-out infinite alternate, pulse 2s infinite;
+}
+
+details[open] p {
+  animation: fadein 0.35s ease backwards;
+}
+
+@property --p {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes t18 {
+  0% { --p: 0; animation-timing-function: steps(18); }
+  14% { --p: 1; }
+  27% { --p: 1; animation-timing-function: steps(18); }
+  33% { --p: 0; }
+  100% { --p: 0; }
+}
+
+@keyframes t14 {
+  0% { --p: 0; animation-timing-function: steps(14); }
+  14% { --p: 1; }
+  27% { --p: 1; animation-timing-function: steps(14); }
+  33% { --p: 0; }
+  100% { --p: 0; }
+}
+
+.typed {
+  display: inline-grid;
+}
+.ty {
+  grid-area: 1 / 1;
+  justify-self: center;
+  position: relative;
+  color: #0A54E1;
+  clip-path: inset(0 calc((1 - var(--p)) * 100%) 0 0);
+  animation: t18 12s infinite backwards;
+}
+.ty::after {
+  content: "";
+  position: absolute;
+  top: 0.1em;
+  bottom: 0.1em;
+  left: calc(var(--p) * 100% - 0.06em);
+  width: 0.06em;
+  background: #0A54E1;
+}
+.ty.a { animation-delay: 0.8s; }
+.ty.b { animation-name: t14; animation-delay: 4.8s; }
+.ty.c { animation-delay: 8.8s; }
+
+.hero {
+  position: relative;
+}
+.hero > *:not(.blob):not(.dots) {
+  position: relative;
+  z-index: 1;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.35;
+  pointer-events: none;
+  animation: floaty 14s ease-in-out infinite alternate;
+}
+.b1 {
+  width: 380px;
+  height: 380px;
+  left: 0;
+  top: 20px;
+  background: #7FA8F5;
+}
+.b2 {
+  width: 320px;
+  height: 320px;
+  right: 0;
+  top: 140px;
+  background: #BFD3FB;
+  animation-delay: -6s;
+}
+.dots {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: radial-gradient(#B9C9E8 1.3px, transparent 1.4px);
+  background-size: 30px 30px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 15%, transparent 65%);
+  mask-image: radial-gradient(ellipse at 50% 35%, #000 15%, transparent 65%);
+  animation: drift 30s linear infinite;
+}
+
+@keyframes floaty {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(40px, 30px) scale(1.15); }
+}
+
+@keyframes drift {
+  to { background-position: 60px 30px; }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes wave {
+  to { transform: translateX(-1120px); }
+}
+
+@keyframes cloud {
+  from { transform: translateX(-120px); }
+  to { transform: translateX(160px); }
+}
+
+.ship {
+  animation: bob 5s ease-in-out infinite;
+}
+.wv1 {
+  animation: wave 16s linear infinite;
+}
+.wv2 {
+  animation: wave 9s linear infinite;
+}
+.cloud {
+  animation: cloud 45s ease-in-out infinite alternate;
+}
+.c2 {
+  animation-duration: 60s;
+  animation-direction: alternate-reverse;
+}
+
+.service-card-minimal,
+.how-step-minimal {
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.3s;
+}
+.service-card-minimal:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 48px rgba(10, 84, 225, 0.14);
+}
+.how-step-minimal:hover {
+  transform: translateY(-4px);
+}
+
+.pill-btn-minimal {
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s, background 0.25s;
+}
+.pill-btn-minimal:hover {
+  opacity: 1;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(11, 18, 32, 0.18);
+}
+
+.arrow-link-minimal {
+  display: inline-block;
+  transition: transform 0.25s;
+}
+.arrow-link-minimal:hover {
+  opacity: 1;
+  transform: translateX(6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ty.a {
+    --p: 1;
+  }
+  .rise,
+  .route .line,
+  .route .dot,
+  .ty,
+  .blob,
+  .dots,
+  .ship,
+  .wv1,
+  .wv2,
+  .cloud {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+

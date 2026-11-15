@@ -1,942 +1,899 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { motion } from "motion/react";
-import { Helmet } from "react-helmet-async";
-import { useEffect } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "../lib/firebase";
-import { 
-  Package, MapPin, Box, PlaneTakeoff, Container, 
-  Search, 
-  Plane, 
-  Ship, 
-  Warehouse, 
-  FileText, 
-  ArrowRight, 
-  Calculator, 
-  Clock, 
-  ShieldCheck, 
-  ChevronRight, 
-  Info,
-  Menu,
-  X
-} from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+
+interface PricingSettings {
+  seaFreightRateUsd: number;
+  seaClearingRateNgn: number;
+  airFreightRateUsd: number;
+  airClearingRateNgn: number;
+  minSeaCbm: number;
+  minAirKg: number;
+}
+
+const DEFAULT_SETTINGS: PricingSettings = {
+  seaFreightRateUsd: 220,
+  seaClearingRateNgn: 165000,
+  airFreightRateUsd: 9.5,
+  airClearingRateNgn: 3500,
+  minSeaCbm: 0.5,
+  minAirKg: 10
+};
 
 export default function Home() {
-  const navigate = useNavigate();
-  const [trackingId, setTrackingId] = useState("");
-  const [error, setError] = useState("");
+  const [trackingId, setTrackingId] = useState('');
+  const [trackingError, setTrackingError] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
-  // Estimator State
-  const [length, setLength] = useState<number>(40);
-  const [width, setWidth] = useState<number>(40);
-  const [height, setHeight] = useState<number>(40);
-  const [cartons, setCartons] = useState<number>(8);
-  const [freightType, setFreightType] = useState<"sea" | "air">("sea");
-  const [rateUsd, setRateUsd] = useState<number>(0);
-  const [rateNgn, setRateNgn] = useState<number>(0);
-  const [settings, setSettings] = useState<any>({ exchangeRateUsdNgn: 1500, seaFreightRateUsd: 180, seaClearingRateNgn: 300000, airFreightRateUsd: 8, airClearingRateNgn: 15000 });
+  // Pricing Settings State
+  const [settings, setSettings] = useState<PricingSettings>(DEFAULT_SETTINGS);
+
+  // Interactive Calculator State
+  const [calcOpen, setCalcOpen] = useState(true);
+  const [calcMode, setCalcMode] = useState<'sea' | 'air'>('sea');
+  const [inputMode, setInputMode] = useState<'dimensions' | 'direct'>('dimensions');
+  const [length, setLength] = useState<string>('');
+  const [width, setWidth] = useState<string>('');
+  const [height, setHeight] = useState<string>('');
+  const [cartons, setCartons] = useState<string>('1');
+  const [weight, setWeight] = useState<string>('');
+  const [directCbm, setDirectCbm] = useState<string>('');
+  const [directWeight, setDirectWeight] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      doc(db, "settings", "pricing"),
+      doc(db, 'settings', 'pricing'),
       (docSnap) => {
         if (docSnap.exists()) {
-          setSettings(docSnap.data());
+          setSettings(docSnap.data() as PricingSettings);
         }
       },
       (err) => {
-        console.error("Failed to subscribe to pricing settings:", err);
+        console.error('Error fetching pricing settings:', err);
       }
     );
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (freightType === "sea") {
-      setRateUsd(settings.seaFreightRateUsd);
-      setRateNgn(settings.seaClearingRateNgn);
-    } else {
-      setRateUsd(settings.airFreightRateUsd);
-      setRateNgn(settings.airClearingRateNgn);
-    }
-  }, [freightType, settings]);
-
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackingId.trim()) {
-      setError("Please enter a tracking ID");
+    const cleaned = trackingId.trim().toUpperCase();
+    if (!cleaned) {
+      setTrackingError('Please enter a valid tracking number.');
       return;
     }
-    setError("");
-    navigate(`/track/${trackingId.trim().toUpperCase()}`);
+    setTrackingError('');
+    navigate(`/track/${cleaned}`);
   };
 
-  // Estimator Calculations
-  const calculatedCbm = ((length * width * height) / 1000000) * cartons;
-  const airVolumetricWeight = ((length * width * height) / 5000) * cartons; // Air division ratio standard
-  const recommendedMode = calculatedCbm > 1.2 || cartons > 12 ? "Sea Freight" : "Air Freight";
-  
-  const estimatedCostUsd = freightType === "sea" 
-    ? calculatedCbm * rateUsd 
-    : airVolumetricWeight * rateUsd;
+  const openCalculatorWithMode = (mode: 'sea' | 'air') => {
+    setCalcMode(mode);
+    setCalcOpen(true);
+    const el = document.getElementById('calculator');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
-  const estimatedCostNgn = freightType === "sea" 
-    ? calculatedCbm * rateNgn 
-    : airVolumetricWeight * rateNgn;
+  // Calculate Results
+  const calculateQuote = () => {
+    const l = parseFloat(length) || 0;
+    const w = parseFloat(width) || 0;
+    const h = parseFloat(height) || 0;
+    const c = parseInt(cartons, 10) || 1;
+    const wt = parseFloat(weight) || 0;
+    const dCbm = parseFloat(directCbm) || 0;
+    const dWt = parseFloat(directWeight) || 0;
+
+    if (calcMode === 'sea') {
+      const rawCbm = inputMode === 'dimensions' ? ((l * w * h) / 1000000) * c : dCbm;
+      if (rawCbm <= 0) {
+        return { volumeCbm: 0, chargeableCbm: 0, usdCost: 0, ngnCost: 0 };
+      }
+      const chargeableCbm = Math.max(rawCbm, settings.minSeaCbm);
+      const usdCost = chargeableCbm * settings.seaFreightRateUsd;
+      const ngnCost = chargeableCbm * settings.seaClearingRateNgn;
+      return { volumeCbm: rawCbm, chargeableCbm, usdCost, ngnCost };
+    } else {
+      if (inputMode === 'dimensions') {
+        const volWeight = ((l * w * h) / 5000) * c;
+        const totalActualWeight = wt * c;
+        const rawWeight = Math.max(volWeight, totalActualWeight);
+        if (rawWeight <= 0) {
+          return { volWeight: 0, actualWeight: 0, chargeableWeight: 0, usdCost: 0, ngnCost: 0 };
+        }
+        const chargeableWeight = Math.max(rawWeight, settings.minAirKg);
+        const usdCost = chargeableWeight * settings.airFreightRateUsd;
+        const ngnCost = chargeableWeight * settings.airClearingRateNgn;
+        return { volWeight, actualWeight: totalActualWeight, chargeableWeight, usdCost, ngnCost };
+      } else {
+        if (dWt <= 0) {
+          return { volWeight: 0, actualWeight: 0, chargeableWeight: 0, usdCost: 0, ngnCost: 0 };
+        }
+        const chargeableWeight = Math.max(dWt, settings.minAirKg);
+        const usdCost = chargeableWeight * settings.airFreightRateUsd;
+        const ngnCost = chargeableWeight * settings.airClearingRateNgn;
+        return { volWeight: 0, actualWeight: dWt, chargeableWeight, usdCost, ngnCost };
+      }
+    }
+  };
+
+  const quote = calculateQuote();
 
   return (
-    <div className="min-h-screen bg-blue-50 text-slate-700 font-sans flex flex-col selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
-      <Helmet>
-        <title>Deep Down Logistics - China to Lagos Air & Ocean Cargo Tracking</title>
-        <meta name="description" content="Deep Down Logistics provides express air cargo and economical ocean freight from Guangzhou, China to Lagos, Nigeria. Track your cargo, view shipping manifests, and manage container logistics live." />
-        <meta name="keywords" content="China to Nigeria shipping, Guangzhou to Lagos cargo, air freight Lagos, ocean container shipping Apapa, cargo tracking, shipping manifest, CBM calculator, logistics portal" />
-        <link rel="canonical" href="https://ais-pre-3sakkjp7mhx3nmrgvewgs5-556021110533.europe-west2.run.app/" />
-        <script type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "LogisticsService",
-              "name": "Deep Down Logistics",
-              "image": "https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80",
-              "description": "Express air cargo and economical ocean freight from Guangzhou, China to Lagos, Nigeria.",
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": "B77 PLAZA A.P.T. TRADEFAIR INTERNATIONAL MARKET, BADAGRY EXPRESS WAY",
-                "addressLocality": "Lagos",
-                "addressCountry": "NG"
-              },
-              "telephone": "+86 13048001610",
-              "url": "https://ais-pre-3sakkjp7mhx3nmrgvewgs5-556021110533.europe-west2.run.app/"
-            }
-          `}
-        </script>
-      </Helmet>
-      
-      {/* GLOBAL ROUTES NETWORK BACKGROUND OVERLAY */}
-      <div 
-        className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1524522173746-f628baad3644?auto=format&fit=crop&w=1920&q=80')] bg-cover bg-center opacity-[0.03] mix-blend-overlay pointer-events-none z-0" 
-      />
-
-      {/* BACKGROUND LIQUID GLASS AMBIENT BLOBS */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none liquid-blob-1" />
-      <div className="absolute top-[30%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none liquid-blob-2" />
-      <div className="absolute bottom-[10%] left-[10%] w-[40vw] h-[40vw] rounded-full bg-emerald-500/5 blur-[110px] pointer-events-none liquid-blob-3" />
-
-      {/* Navigation Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-blue-50/95 border-b border-blue-100 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 clay-card-blue flex items-center justify-center shadow-lg">
-              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-            <span className="font-display font-bold text-sm sm:text-base tracking-tight text-slate-900 whitespace-nowrap">
-              Deep Down Logistics
-            </span>
+    <div className="min-h-screen bg-[#FFFFFF] text-[#0B1220] font-sans text-base leading-[1.6] selection:bg-[#0A54E1]/15 selection:text-[#0A54E1] overflow-x-hidden">
+      <div className="max-w-[1120px] mx-auto px-4 sm:px-8">
+        {/* Header */}
+        <header className="rise flex justify-between items-center py-5 sm:py-7 gap-4 relative z-30">
+          <Link
+            to="/"
+            className="font-bold text-[20px] tracking-[-0.02em] text-[#0B1220] hover:opacity-70 transition-opacity"
+          >
+            Deep Down
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8">
-            <a href="#services" className="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap">
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-7 text-[14px]">
+            <a href="#services" className="text-[#0B1220] hover:opacity-65 transition-opacity">
               Services
             </a>
-            <a href="#estimator" className="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap">
-              CBM Estimator
+            <a href="#how" className="text-[#0B1220] hover:opacity-65 transition-opacity">
+              How it works
             </a>
-            <a href="#how-it-works" className="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap">
-              How It Works
+            <a href="#calculator" className="text-[#0B1220] hover:opacity-65 transition-opacity">
+              Calculator
             </a>
-            <a href="#contact" className="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap">
-              Offices
+            <a href="#faq" className="text-[#0B1220] hover:opacity-65 transition-opacity">
+              FAQ
             </a>
-            <Link 
-              to="/login" 
-              className="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors border-l border-slate-200 pl-6 whitespace-nowrap"
+            <a href="#track" className="text-[#0B1220] hover:opacity-65 transition-opacity">
+              Track
+            </a>
+            <Link
+              to="/login"
+              className="px-5 py-[11px] text-[#0B1220] hover:opacity-65 transition-opacity"
             >
-              Portal Login
+              Sign in
+            </Link>
+            <Link
+              to="/login"
+              className="pill-btn-minimal bg-[#0A54E1] text-white px-[22px] py-[11px] rounded-full font-medium"
+            >
+              Create account
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Mobile Nav Toggle */}
+          <div className="flex items-center gap-2 md:hidden">
             <Link
               to="/login"
-              className="clay-btn-blue px-3.5 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all liquid-gloss-shine whitespace-nowrap"
+              className="pill-btn-minimal bg-[#0A54E1] text-white px-4 py-2 rounded-full text-xs font-medium min-h-[40px] inline-flex items-center"
             >
-              <span className="hidden xs:inline sm:inline">Access Portal</span>
-              <span className="xs:hidden sm:hidden">Portal</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              Sign in
             </Link>
             <button
               type="button"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={mobileMenuOpen}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2.5 rounded-full text-[#0B1220] hover:bg-[#F1F4F9] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
-        </div>
+        </header>
 
+        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <nav className="md:hidden border-t border-blue-100 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-1 shadow-lg">
+          <nav className="md:hidden bg-[#F1F4F9] rounded-3xl p-5 mb-4 flex flex-col gap-3 text-[15px] font-medium border border-[#E3E8F0]">
             <a
               href="#services"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
             >
               Services
             </a>
             <a
-              href="#estimator"
+              href="#how"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
             >
-              CBM Estimator
+              How it works
             </a>
             <a
-              href="#how-it-works"
+              href="#calculator"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
             >
-              How It Works
+              CBM Calculator
             </a>
             <a
-              href="#contact"
+              href="#faq"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
             >
-              Offices & Hubs
+              FAQ
             </a>
-            <Link
-              to="/login"
+            <a
+              href="#track"
               onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2.5 rounded-lg text-sm font-semibold text-blue-600 hover:bg-blue-50"
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
             >
-              Portal Login
-            </Link>
+              Track cargo
+            </a>
+            <div className="pt-2 border-t border-[#E3E8F0] flex flex-col sm:flex-row gap-2.5">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-3 px-5 rounded-full bg-white text-[#0B1220] text-center font-semibold border border-[#D5DBE5]"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-3 px-5 rounded-full bg-[#0A54E1] text-white text-center font-semibold"
+              >
+                Create account
+              </Link>
+            </div>
           </nav>
         )}
-      </header>
 
-      {/* Hero Section */}
-      <main className="flex-grow relative z-10">
-        
-        {/* Banner Announcement & Search Panel */}
-        <section className="relative pt-8 pb-14 sm:pt-12 sm:pb-24 overflow-hidden bg-blue-100">
-          
-          {/* BACKGROUND MOTION NETWORK PATTERNS */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-            {/* Floating particles or logistics icons */}
-            <motion.div 
-              animate={{ 
-                x: [0, 40, -20, 0], 
-                y: [0, -30, 20, 0],
-                rotate: [0, 10, -10, 0]
-              }}
-              transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[15%] left-[5%] text-blue-500/10"
+        {/* Hero Section */}
+        <section className="hero pt-12 sm:pt-24 pb-12 sm:pb-[72px] text-center">
+          <div className="blob b1" />
+          <div className="blob b2" />
+          <div className="dots" />
+
+          <h1 className="rise d1 font-bold text-[clamp(36px,7vw,88px)] leading-[1.02] tracking-[-0.035em] mx-auto max-w-[880px]">
+            <span className="typed">
+              <span className="ty a">Guangzhou to Lagos</span>
+              <span className="ty b">China to Lagos</span>
+              <span className="ty c">Hong Kong to Lagos</span>
+            </span>
+            <br />
+            made simple.
+          </h1>
+
+          <p className="rise d2 text-[17px] sm:text-[19px] text-[#4B5565] max-w-[520px] mx-auto mt-6 sm:mt-7 mb-8 sm:mb-10 px-2">
+            Air cargo in 5–7 days. Ocean freight in 35–45. Track every shipment from the first mile to Apapa.
+          </p>
+
+          <a
+            href="#calculator"
+            className="rise d3 pill-btn-minimal inline-block bg-[#0A54E1] text-white px-10 py-[18px] rounded-full font-semibold text-[14px] tracking-[0.08em]"
+          >
+            SHIP NOW
+          </a>
+
+          {/* Animated Maritime & Air SVG Illustration */}
+          <div
+            className="rise d4 mt-12 sm:mt-[72px] mx-auto rounded-[20px] sm:rounded-[28px] overflow-hidden"
+            style={{ boxShadow: '0 30px 60px rgba(10, 84, 225, 0.15)' }}
+          >
+            <svg
+              viewBox="0 0 1120 440"
+              width="100%"
+              className="block"
+              role="img"
+              aria-label="A cargo ship at sea with a plane flying overhead"
             >
-              <Plane className="w-16 h-16" />
-            </motion.div>
-
-            <motion.div 
-              animate={{ 
-                x: [0, -30, 30, 0], 
-                y: [0, 40, -20, 0],
-                rotate: [0, -15, 15, 0]
-              }}
-              transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[50%] right-[10%] text-indigo-500/10"
-            >
-              <Ship className="w-24 h-24" />
-            </motion.div>
-
-            <motion.div 
-              animate={{ 
-                x: [0, 25, -25, 0], 
-                y: [0, 30, -30, 0],
-              }}
-              transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute bottom-[10%] left-[25%] text-emerald-500/10"
-            >
-              <Package className="w-12 h-12" />
-            </motion.div>
-
-            <motion.div 
-              animate={{ 
-                scale: [1, 1.15, 0.9, 1],
-                opacity: [0.03, 0.08, 0.05, 0.03]
-              }}
-              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[30%] left-[45%] w-96 h-96 rounded-full bg-blue-500/15 blur-[100px]"
-            />
-
-            <motion.div 
-              animate={{ 
-                scale: [0.9, 1.1, 0.95, 0.9],
-                opacity: [0.04, 0.09, 0.04, 0.04]
-              }}
-              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[10%] right-[30%] w-80 h-80 rounded-full bg-indigo-500/15 blur-[90px]"
-            />
-
-            {/* Dynamic animated routing line */}
-            <svg className="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
-              <motion.path 
-                d="M -100 150 Q 300 80, 600 300 T 1200 100 T 2000 250" 
-                fill="none" 
-                stroke="white" 
-                strokeWidth="2" 
-                strokeDasharray="6, 6"
-                animate={{ strokeDashoffset: [0, -60] }}
-                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+              <defs>
+                <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#CFE0FF" />
+                  <stop offset="1" stopColor="#F4F8FF" />
+                </linearGradient>
+                <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#2F72EA" />
+                  <stop offset="1" stopColor="#0A3FA8" />
+                </linearGradient>
+              </defs>
+              <rect width="1120" height="440" fill="url(#sky)" />
+              <circle cx="880" cy="110" r="64" fill="#FFFFFF" opacity=".7" />
+              <g className="cloud c1">
+                <ellipse cx="180" cy="90" rx="70" ry="18" fill="#FFFFFF" />
+                <ellipse cx="220" cy="76" rx="44" ry="18" fill="#FFFFFF" />
+              </g>
+              <g className="cloud c2">
+                <ellipse cx="640" cy="150" rx="60" ry="14" fill="#FFFFFF" opacity=".9" />
+                <ellipse cx="672" cy="138" rx="36" ry="14" fill="#FFFFFF" opacity=".9" />
+              </g>
+              <path
+                d="M80 260 Q560 -20 1040 200"
+                fill="none"
+                stroke="#0A54E1"
+                strokeOpacity=".35"
+                strokeWidth="2"
+                strokeDasharray="6 10"
               />
-              <motion.path 
-                d="M 100 400 Q 500 500, 900 250 T 1800 450" 
-                fill="none" 
-                stroke="#3b82f6" 
-                strokeWidth="1.5" 
-                strokeDasharray="5, 5"
-                animate={{ strokeDashoffset: [0, 50] }}
-                transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-              />
+              <g>
+                <animateMotion
+                  dur="14s"
+                  repeatCount="indefinite"
+                  path="M80 260 Q560 -20 1040 200"
+                  rotate="auto"
+                />
+                <rect x="-20" y="-4" width="40" height="8" rx="4" fill="#0B1220" />
+                <polygon points="-4,-4 6,-4 -6,-20 -12,-20" fill="#0B1220" />
+                <polygon points="-4,4 6,4 -6,20 -12,20" fill="#0B1220" />
+                <polygon points="-18,-3 -12,-3 -18,-9 -20,-9" fill="#0B1220" />
+                <polygon points="-18,3 -12,3 -18,9 -20,9" fill="#0B1220" />
+              </g>
+              <rect y="330" width="1120" height="110" fill="url(#sea)" />
+              <g className="wv1" opacity=".55">
+                <path
+                  d="M0 352 q35 -12 70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 V440 H0Z"
+                  fill="#6FA0F5"
+                />
+              </g>
+              <g className="ship">
+                <rect x="290" y="282" width="54" height="36" rx="2" fill="#0A54E1" />
+                <rect x="346" y="282" width="54" height="36" rx="2" fill="#7FA8F5" />
+                <rect x="402" y="282" width="54" height="36" rx="2" fill="#F28C28" />
+                <rect x="458" y="282" width="54" height="36" rx="2" fill="#FFFFFF" />
+                <rect x="514" y="282" width="54" height="36" rx="2" fill="#2BB3A3" />
+                <rect x="570" y="282" width="54" height="36" rx="2" fill="#0A54E1" />
+                <rect x="626" y="282" width="54" height="36" rx="2" fill="#F28C28" />
+                <rect x="290" y="244" width="54" height="36" rx="2" fill="#F28C28" />
+                <rect x="346" y="244" width="54" height="36" rx="2" fill="#FFFFFF" />
+                <rect x="402" y="244" width="54" height="36" rx="2" fill="#2BB3A3" />
+                <rect x="458" y="244" width="54" height="36" rx="2" fill="#0A54E1" />
+                <rect x="514" y="244" width="54" height="36" rx="2" fill="#F28C28" />
+                <rect x="570" y="244" width="54" height="36" rx="2" fill="#0A54E1" />
+                <rect x="290" y="206" width="54" height="36" rx="2" fill="#2BB3A3" />
+                <rect x="346" y="206" width="54" height="36" rx="2" fill="#0A54E1" />
+                <rect x="402" y="206" width="54" height="36" rx="2" fill="#F28C28" />
+                <rect x="458" y="206" width="54" height="36" rx="2" fill="#0A54E1" />
+                <path d="M240 318 H790 L748 366 H290 Z" fill="#0B1220" />
+                <path d="M246 326 H784" stroke="#F28C28" strokeWidth="4" />
+                <rect x="700" y="236" width="70" height="82" fill="#FFFFFF" />
+                <rect x="708" y="248" width="54" height="10" fill="#0A54E1" />
+                <rect x="716" y="220" width="38" height="16" fill="#E7EEFB" />
+                <rect x="736" y="204" width="12" height="16" fill="#F28C28" />
+              </g>
+              <g className="wv2">
+                <path
+                  d="M0 372 q35 -12 70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 t70 0 V440 H0Z"
+                  fill="#0A54E1"
+                  opacity=".92"
+                />
+              </g>
             </svg>
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            
-            <div className="text-center mb-6 sm:mb-10">
-              <p className="text-xs font-semibold tracking-wider uppercase text-blue-700">
-                Guangzhou, China · Lagos, Nigeria · Express Cargo Delivery
-              </p>
+          <div className="route rise d4">
+            <span>Guangzhou</span>
+            <div className="line">
+              <span className="dot" />
+            </div>
+            <span>Lagos</span>
+          </div>
+        </section>
+
+        {/* Track Section */}
+        <section id="track" className="pt-6 pb-16 sm:pb-24 text-center">
+          <form
+            onSubmit={handleTrackSubmit}
+            className="flex flex-col sm:flex-row gap-3 max-w-[560px] mx-auto"
+          >
+            <label htmlFor="tn" className="sr-only">
+              Tracking number
+            </label>
+            <input
+              id="tn"
+              type="text"
+              value={trackingId}
+              onChange={(e) => {
+                setTrackingId(e.target.value);
+                if (trackingError) setTrackingError('');
+              }}
+              placeholder="Enter your tracking number (e.g. DDL-84920)"
+              className="flex-1 min-w-[220px] min-h-[54px] px-6 border border-[#D5DBE5] rounded-full text-base sm:text-[15px] text-[#0B1220] bg-white focus:border-[#0A54E1] focus:ring-4 focus:ring-[#0A54E1]/15 outline-none transition-all"
+            />
+            <button
+              type="submit"
+              className="pill-btn-minimal min-h-[54px] px-8 rounded-full bg-[#0B1220] text-white font-medium text-[15px] cursor-pointer"
+            >
+              Track cargo
+            </button>
+          </form>
+          {trackingError && (
+            <p className="mt-3 text-sm text-red-600 font-medium">{trackingError}</p>
+          )}
+        </section>
+
+        {/* Services Section */}
+        <section id="services" className="py-12 sm:pt-12 sm:pb-24">
+          <p className="text-[13px] font-semibold tracking-[0.12em] text-[#0A54E1] mb-3 uppercase">
+            SERVICES
+          </p>
+          <h2 className="font-bold text-3xl sm:text-[44px] tracking-[-0.03em] leading-[1.1] mb-8 sm:mb-12">
+            Two ways to move your cargo.
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Express Air Card */}
+            <div className="service-card-minimal bg-[#F1F4F9] rounded-[28px] p-7 sm:py-12 sm:px-10 flex flex-col justify-between">
+              <div>
+                <svg
+                  width="72"
+                  height="72"
+                  viewBox="0 0 72 72"
+                  aria-hidden="true"
+                  className="block mb-7"
+                >
+                  <circle cx="36" cy="36" r="36" fill="#FFFFFF" />
+                  <g transform="translate(36 36) rotate(-30) scale(1.1)">
+                    <rect x="-20" y="-4" width="40" height="8" rx="4" fill="#0A54E1" />
+                    <polygon points="-4,-4 6,-4 -6,-20 -12,-20" fill="#0A54E1" />
+                    <polygon points="-4,4 6,4 -6,20 -12,20" fill="#0B1220" opacity="0" />
+                    <polygon points="-4,4 6,4 -6,20 -12,20" fill="#0A54E1" />
+                    <polygon points="-18,-3 -12,-3 -18,-9 -20,-9" fill="#0A54E1" />
+                    <polygon points="-18,3 -12,3 -18,9 -20,9" fill="#0A54E1" />
+                  </g>
+                </svg>
+                <h3 className="font-semibold text-2xl sm:text-[28px] tracking-[-0.02em] mb-3">
+                  Express air
+                </h3>
+                <p className="text-[#4B5565] mb-4">
+                  Arrives in 5–7 days. For urgent stock and high-value goods.
+                </p>
+                <p className="text-xs font-medium text-[#6B7585] mb-8">
+                  Current rate: <span className="text-[#0B1220] font-semibold">${settings.airFreightRateUsd}/kg</span> freight •{' '}
+                  <span className="text-[#0B1220] font-semibold">₦{settings.airClearingRateNgn.toLocaleString()}/kg</span> clearing (min {settings.minAirKg} kg)
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => openCalculatorWithMode('air')}
+                  className="arrow-link-minimal text-[#0A54E1] font-semibold text-[14px] tracking-[0.06em] cursor-pointer bg-transparent border-0 p-0"
+                >
+                  AIR NOW →
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              {/* Left Column: Headings & Tracking glass block */}
-              <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-center lg:text-left">
-                <h1 className="text-3xl sm:text-5xl lg:text-6xl font-display font-extrabold text-slate-900 tracking-tight leading-tight text-balance">
-                  Guangzhou to Lagos <br className="hidden sm:inline" />
-                  <span className="text-blue-700">
-                    Cargo Shipping Made Simple
-                  </span>
-                </h1>
-
-                <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0">
-                  Consolidate, measure, and track your air cargo or sea freight from our secure warehouse in Guangzhou 
-                  directly to our Lagos office and warehouse hubs. No hidden charges, zero clearance hassle.
+            {/* Ocean Freight Card */}
+            <div className="service-card-minimal bg-[#F1F4F9] rounded-[28px] p-7 sm:py-12 sm:px-10 flex flex-col justify-between">
+              <div>
+                <svg
+                  width="72"
+                  height="72"
+                  viewBox="0 0 72 72"
+                  aria-hidden="true"
+                  className="block mb-7"
+                >
+                  <circle cx="36" cy="36" r="36" fill="#FFFFFF" />
+                  <rect x="16" y="22" width="18" height="12" rx="2" fill="#0A54E1" />
+                  <rect x="36" y="22" width="18" height="12" rx="2" fill="#F28C28" />
+                  <rect x="26" y="35" width="18" height="12" rx="2" fill="#7FA8F5" />
+                  <path
+                    d="M14 52 q5 -5 10 0 t10 0 t10 0 t10 0 t10 0"
+                    fill="none"
+                    stroke="#0A54E1"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <h3 className="font-semibold text-2xl sm:text-[28px] tracking-[-0.02em] mb-3">
+                  Ocean freight
+                </h3>
+                <p className="text-[#4B5565] mb-4">
+                  Arrives in 35–45 days. The economical choice for bulk and containers.
                 </p>
+                <p className="text-xs font-medium text-[#6B7585] mb-8">
+                  Current rate: <span className="text-[#0B1220] font-semibold">${settings.seaFreightRateUsd}/CBM</span> freight •{' '}
+                  <span className="text-[#0B1220] font-semibold">₦{settings.seaClearingRateNgn.toLocaleString()}/CBM</span> clearing (min {settings.minSeaCbm} CBM)
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => openCalculatorWithMode('sea')}
+                  className="arrow-link-minimal text-[#0A54E1] font-semibold text-[14px] tracking-[0.06em] cursor-pointer bg-transparent border-0 p-0"
+                >
+                  SHIP BY SEA →
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
-                {/* Tracking Card */}
-                <div className="max-w-xl mx-auto lg:mx-0 glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl relative overflow-hidden text-left">
-                  <div className="absolute -top-10 -right-10 w-28 h-28 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
+        {/* How It Works Section */}
+        <section id="how" className="py-12 sm:pt-12 sm:pb-24">
+          <p className="text-[13px] font-semibold tracking-[0.12em] text-[#0A54E1] mb-3 uppercase">
+            HOW IT WORKS
+          </p>
+          <h2 className="font-bold text-3xl sm:text-[44px] tracking-[-0.03em] leading-[1.1] mb-8 sm:mb-12">
+            Ship, track, receive.
+          </h2>
 
-                  <h2 className="font-display text-xs sm:text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2 uppercase tracking-wider">
-                    <Search className="w-4 h-4 text-blue-500 shrink-0" />
-                    Track Consignment Manifest
-                  </h2>
-                  
-                  <form onSubmit={handleTrackSubmit} className="space-y-3">
-                    <div className="flex flex-col sm:flex-row gap-2 sm:relative">
-                      <div className="relative flex-1">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                          <Package className="h-4 w-4 text-slate-500" />
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Tracking ID (e.g. DDL-2026-12345)"
-                          value={trackingId}
-                          onChange={(e) => {
-                            setTrackingId(e.target.value);
-                            setError("");
-                          }}
-                          className="block w-full pl-10 pr-3 sm:pr-28 py-3 min-h-[46px] bg-white/95 border border-slate-200 rounded-xl text-base sm:text-sm text-slate-900 placeholder-slate-400 font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all shadow-inner"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="sm:absolute sm:inset-y-1.5 sm:right-1.5 min-h-[44px] sm:min-h-0 px-5 py-2.5 sm:py-0 bg-blue-600 hover:bg-blue-500 text-white rounded-xl sm:rounded-lg text-sm sm:text-xs font-semibold shadow-md transition-colors clay-btn-blue flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
-                      >
-                        Track Cargo
-                        <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                      </button>
-                    </div>
-                    {error && (
-                      <p className="text-red-600 text-xs pl-1 font-semibold">
-                        {error}
-                      </p>
-                    )}
-                  </form>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
+            <div className="how-step-minimal">
+              <p className="font-bold text-[15px] text-[#0A54E1] mb-2">01</p>
+              <h3 className="font-semibold text-[20px] mb-2">Ship</h3>
+              <p className="text-[#4B5565] m-0">
+                Choose air or ocean and send your goods from Guangzhou.
+              </p>
+            </div>
+            <div className="how-step-minimal">
+              <p className="font-bold text-[15px] text-[#0A54E1] mb-2">02</p>
+              <h3 className="font-semibold text-[20px] mb-2">Track</h3>
+              <p className="text-[#4B5565] m-0">
+                View your manifest and live cargo status in your dashboard.
+              </p>
+            </div>
+            <div className="how-step-minimal">
+              <p className="font-bold text-[15px] text-[#0A54E1] mb-2">03</p>
+              <h3 className="font-semibold text-[20px] mb-2">Receive</h3>
+              <p className="text-[#4B5565] m-0">
+                Collect in Lagos with nothing left to chase.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section id="faq" className="py-12 sm:pt-12 sm:pb-24">
+          <p className="text-[13px] font-semibold tracking-[0.12em] text-[#0A54E1] mb-3 uppercase">
+            FAQ
+          </p>
+          <h2 className="font-bold text-3xl sm:text-[44px] tracking-[-0.03em] leading-[1.1] mb-8 sm:mb-10">
+            Questions, answered.
+          </h2>
+
+          <div className="border-t border-[#E3E8F0]">
+            <details className="border-b border-[#E3E8F0] py-6">
+              <summary className="flex gap-4 sm:gap-6 font-semibold text-[17px] sm:text-[18px] items-baseline">
+                <span className="text-[#6B7585] font-medium">01</span>
+                <span>How long does shipping take?</span>
+              </summary>
+              <p className="text-[#4B5565] mt-4 ml-8 sm:ml-12">
+                Air cargo takes 5–7 days from our Guangzhou warehouse to Lagos. Ocean freight takes 35–45 days to Apapa or Tin Can Island port.
+              </p>
+            </details>
+
+            <details className="border-b border-[#E3E8F0] py-6">
+              <summary className="flex gap-4 sm:gap-6 font-semibold text-[17px] sm:text-[18px] items-baseline">
+                <span className="text-[#6B7585] font-medium">02</span>
+                <span>How do I track my cargo?</span>
+              </summary>
+              <p className="text-[#4B5565] mt-4 ml-8 sm:ml-12">
+                Enter your tracking number in the search bar above, or sign in to your client dashboard to see your full manifest, live status updates, and WhatsApp alerts.
+              </p>
+            </details>
+
+            <details className="border-b border-[#E3E8F0] py-6">
+              <summary className="flex gap-4 sm:gap-6 font-semibold text-[17px] sm:text-[18px] items-baseline">
+                <span className="text-[#6B7585] font-medium">03</span>
+                <span>How is shipping cost calculated?</span>
+              </summary>
+              <p className="text-[#4B5565] mt-4 ml-8 sm:ml-12">
+                Ocean freight is calculated by volume in Cubic Meters (L × W × H cm ÷ 1,000,000 × cartons) at ${settings.seaFreightRateUsd}/CBM freight plus ₦{settings.seaClearingRateNgn.toLocaleString()}/CBM clearing (minimum {settings.minSeaCbm} CBM). Express air cargo is billed by the greater of actual or volumetric weight (L × W × H cm ÷ 5,000) at ${settings.airFreightRateUsd}/kg freight plus ₦{settings.airClearingRateNgn.toLocaleString()}/kg clearing (minimum {settings.minAirKg} kg).
+              </p>
+            </details>
+
+            <details className="border-b border-[#E3E8F0] py-6">
+              <summary className="flex gap-4 sm:gap-6 font-semibold text-[17px] sm:text-[18px] items-baseline">
+                <span className="text-[#6B7585] font-medium">04</span>
+                <span>Is customs clearance included?</span>
+              </summary>
+              <p className="text-[#4B5565] mt-4 ml-8 sm:ml-12">
+                Yes. We handle end-to-end customs documentation, shipping line settlements, and local port clearance at Apapa, Tin Can Island, and Ikeja cargo hub in Lagos so you can collect your goods hassle-free.
+              </p>
+            </details>
+          </div>
+        </section>
+
+        {/* CBM Calculator CTA Banner & Interactive Calculator */}
+        <section id="calculator" className="pb-16 sm:pb-24">
+          <div className="bg-[#0A54E1] text-white rounded-[28px] sm:rounded-[32px] p-7 sm:py-[72px] sm:px-14 grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 items-center">
+            <div>
+              <h2 className="font-bold text-3xl sm:text-[40px] tracking-[-0.03em] leading-[1.1] mb-3">
+                Know your volume before you ship.
+              </h2>
+              <p className="m-0 text-[#DCE7FF]">
+                Size up your cargo in seconds with the CBM calculator.
+              </p>
+            </div>
+            <div className="flex gap-4 flex-wrap lg:justify-end">
+              <button
+                type="button"
+                onClick={() => setCalcOpen(!calcOpen)}
+                className="pill-btn-minimal bg-white text-[#0A54E1] px-8 py-4 rounded-full font-semibold text-[15px] cursor-pointer border-0"
+              >
+                {calcOpen ? 'Hide calculator' : 'Open calculator'}
+              </button>
+              <a
+                href="#contact"
+                className="pill-btn-minimal border border-white text-white px-8 py-4 rounded-full font-medium text-[15px]"
+              >
+                Talk to us
+              </a>
+            </div>
+          </div>
+
+          {/* Interactive CBM & Air Calculator Panel */}
+          {calcOpen && (
+            <div className="mt-6 bg-[#F1F4F9] rounded-[28px] p-6 sm:p-10 border border-[#E3E8F0]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-[#E3E8F0]">
+                <div>
+                  <p className="text-[12px] font-semibold tracking-[0.12em] text-[#0A54E1] uppercase mb-1">
+                    LIVE FREIGHT & CBM ESTIMATOR
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-bold tracking-[-0.02em] text-[#0B1220]">
+                    Calculate your shipping & clearing estimate
+                  </h3>
                 </div>
 
-                {/* Operator and client login hint */}
-                <div className="pt-1 flex justify-center lg:justify-start">
-                  <div className="inline-flex flex-wrap items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/60 text-xs sm:text-sm text-slate-600 border border-slate-200/80">
-                    <span>Registered Cargo Client or Operator?</span>
-                    <Link to="/login" className="text-blue-700 font-semibold hover:text-blue-600 inline-flex items-center gap-0.5 transition-colors">
-                      Login Securely <ChevronRight className="w-4 h-4" />
+                {/* Mode Switcher */}
+                <div className="inline-flex bg-white p-1.5 rounded-full border border-[#D5DBE5] self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setCalcMode('sea')}
+                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
+                      calcMode === 'sea'
+                        ? 'bg-[#0A54E1] text-white'
+                        : 'text-[#4B5565] hover:text-[#0B1220]'
+                    }`}
+                  >
+                    Ocean (CBM)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalcMode('air')}
+                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
+                      calcMode === 'air'
+                        ? 'bg-[#0A54E1] text-white'
+                        : 'text-[#4B5565] hover:text-[#0B1220]'
+                    }`}
+                  >
+                    Express Air (KG)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Inputs Column */}
+                <div className="lg:col-span-7 space-y-5">
+                  <div className="flex items-center gap-3 text-xs font-medium text-[#4B5565]">
+                    <span>Input method:</span>
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('dimensions')}
+                      className={`px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
+                        inputMode === 'dimensions'
+                          ? 'bg-[#0B1220] text-white border-[#0B1220]'
+                          : 'bg-white text-[#4B5565] border-[#D5DBE5]'
+                      }`}
+                    >
+                      Carton Dimensions (cm)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('direct')}
+                      className={`px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
+                        inputMode === 'direct'
+                          ? 'bg-[#0B1220] text-white border-[#0B1220]'
+                          : 'bg-white text-[#4B5565] border-[#D5DBE5]'
+                      }`}
+                    >
+                      {calcMode === 'sea' ? 'Known Total CBM' : 'Known Total Weight'}
+                    </button>
+                  </div>
+
+                  {inputMode === 'dimensions' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                          Length per carton (cm)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={length}
+                          onChange={(e) => setLength(e.target.value)}
+                          placeholder="e.g. 60"
+                          className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                          Width per carton (cm)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={width}
+                          onChange={(e) => setWidth(e.target.value)}
+                          placeholder="e.g. 40"
+                          className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                          Height per carton (cm)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={height}
+                          onChange={(e) => setHeight(e.target.value)}
+                          placeholder="e.g. 50"
+                          className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                          Number of cartons
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={cartons}
+                          onChange={(e) => setCartons(e.target.value)}
+                          placeholder="1"
+                          className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                        />
+                      </div>
+                      {calcMode === 'air' && (
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                            Actual Weight per carton (kg)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={weight}
+                            onChange={(e) => setWeight(e.target.value)}
+                            placeholder="e.g. 25"
+                            className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      {calcMode === 'sea' ? (
+                        <div>
+                          <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                            Total Volume (CBM)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={directCbm}
+                            onChange={(e) => setDirectCbm(e.target.value)}
+                            placeholder="e.g. 2.5"
+                            className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-semibold text-[#4B5565] mb-1.5">
+                            Total Chargeable Weight (KG)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={directWeight}
+                            onChange={(e) => setDirectWeight(e.target.value)}
+                            placeholder="e.g. 45"
+                            className="w-full min-h-[48px] px-4 rounded-2xl border border-[#D5DBE5] bg-white text-base sm:text-sm text-[#0B1220] focus:border-[#0A54E1] outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-[#6B7585]">
+                    {calcMode === 'sea'
+                      ? `Formula: Length × Width × Height (cm) ÷ 1,000,000 × Cartons. Minimum billable volume is ${settings.minSeaCbm} CBM.`
+                      : `Formula: Greater of Actual Weight or Volumetric Weight (L × W × H cm ÷ 5,000). Minimum billable weight is ${settings.minAirKg} kg.`}
+                  </p>
+                </div>
+
+                {/* Live Output Card */}
+                <div className="lg:col-span-5 bg-white rounded-[24px] p-6 sm:p-7 border border-[#E3E8F0] space-y-5">
+                  <div className="flex items-center justify-between border-b border-[#E3E8F0] pb-4">
+                    <span className="text-sm text-[#4B5565]">
+                      {calcMode === 'sea' ? 'Calculated Volume' : 'Chargeable Weight'}
+                    </span>
+                    <span className="text-lg font-bold text-[#0B1220]">
+                      {calcMode === 'sea'
+                        ? `${(quote.volumeCbm || 0).toFixed(3)} CBM`
+                        : `${(quote.chargeableWeight || 0).toFixed(1)} KG`}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm text-[#4B5565]">Estimated Freight (USD)</span>
+                      <span className="text-2xl font-bold text-[#0A54E1]">
+                        ${quote.usdCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm text-[#4B5565]">Lagos Clearing (NGN)</span>
+                      <span className="text-xl font-bold text-[#0B1220]">
+                        ₦{Math.round(quote.ngnCost).toLocaleString('en-NG')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <Link
+                      to="/login"
+                      className="pill-btn-minimal block w-full text-center bg-[#0B1220] text-white py-3.5 px-6 rounded-full font-medium text-sm"
+                    >
+                      Book this shipment →
                     </Link>
                   </div>
                 </div>
               </div>
-
-              {/* Right Column: Route Visual Card */}
-              <div className="lg:col-span-6 space-y-6">
-                <div className="relative w-full max-w-lg mx-auto lg:max-w-none">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-blue-600/10 rounded-full blur-[90px] pointer-events-none" />
-                  <div className="absolute top-1/3 right-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-[70px] pointer-events-none" />
-
-                  <div className="glass-panel rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-slate-200 shadow-2xl relative overflow-hidden group">
-                    <div className="h-52 sm:h-72 lg:h-80 w-full rounded-xl sm:rounded-2xl overflow-hidden relative border border-slate-200 shadow-inner bg-slate-900">
-                      <img 
-                        src="https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?auto=format&fit=crop&w=800&q=80" 
-                        alt="Maritime Cargo Container Ship" 
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 opacity-90"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-slate-950/15" />
-                      
-                      <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5 space-y-1.5">
-                        <div className="text-[11px] font-mono tracking-widest text-blue-300 font-bold uppercase">
-                          Active Maritime Corridor
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-1">
-                          <div>
-                            <p className="text-base sm:text-lg font-display font-bold text-white">Guangzhou ➔ Apapa Lagos</p>
-                            <p className="text-xs text-slate-200 font-mono">Consolidated Sea Container Line</p>
-                          </div>
-                          <div className="sm:text-right">
-                            <p className="text-xs font-mono font-bold text-emerald-300">Weekly Departures</p>
-                            <p className="text-[11px] text-slate-300 font-mono">Apapa Harbour Clearance</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3.5 sm:mt-4">
-                      <div className="bg-white/85 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-100 text-center">
-                        <span className="block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                          Warehouse
-                        </span>
-                        <span className="text-xs font-bold text-slate-800 font-mono block">
-                          Guangzhou
-                        </span>
-                      </div>
-                      <div className="bg-white/85 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-100 text-center">
-                        <span className="block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                          Air Cargo
-                        </span>
-                        <span className="text-xs font-bold text-blue-600 font-mono block tabular-nums">
-                          5–7 Days
-                        </span>
-                      </div>
-                      <div className="bg-white/85 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-100 text-center">
-                        <span className="block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                          Sea Line
-                        </span>
-                        <span className="text-xs font-bold text-indigo-600 font-mono block">
-                          Weekly Sat
-                        </span>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
             </div>
-
-          </div>
+          )}
         </section>
 
-        {/* Feature Highlights Grid */}
-        <section className="py-6 sm:py-8 bg-blue-50 border-y border-blue-100 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 text-center">
-              <div className="p-3 sm:p-4">
-                <p className="text-lg sm:text-2xl font-display font-bold text-slate-900">Guangzhou</p>
-                <p className="text-[11px] sm:text-xs text-slate-600 font-semibold uppercase tracking-wider mt-1">Direct Warehouse Hub</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <p className="text-lg sm:text-2xl font-display font-bold text-blue-600 tabular-nums">5 - 7 Days</p>
-                <p className="text-[11px] sm:text-xs text-slate-600 font-semibold uppercase tracking-wider mt-1">Express Air Cargo</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <p className="text-lg sm:text-2xl font-display font-bold text-indigo-600 tabular-nums">35 - 45 Days</p>
-                <p className="text-[11px] sm:text-xs text-slate-600 font-semibold uppercase tracking-wider mt-1">Consolidated Sea Freight</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <p className="text-lg sm:text-2xl font-display font-bold text-emerald-600">100% Secure</p>
-                <p className="text-[11px] sm:text-xs text-slate-600 font-semibold uppercase tracking-wider mt-1">Apapa Custom Clearance</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Services */}
-        <section id="services" className="py-14 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight text-balance">
-              Our Direct Cargo & Shipping Services
-            </h2>
-            <p className="mt-3 text-sm text-slate-600 max-w-lg mx-auto">
-              Professional sea and air freight consolidation, custom clearance, and secure warehousing solutions tailored for Nigerian importers.
+        {/* Footer */}
+        <footer
+          id="contact"
+          className="border-t border-[#E3E8F0] pt-14 pb-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 text-[14px] text-[#4B5565]"
+        >
+          <div>
+            <p className="font-bold text-[18px] text-[#0B1220] mb-3">Deep Down</p>
+            <p className="m-0">
+              Cargo from Guangzhou to Lagos, by air and sea. Groupage, full container load, and port clearing.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            {/* CARD 1: Express Air Cargo */}
-            <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
-              <div className="h-24 sm:h-32 w-full relative overflow-hidden bg-blue-50 flex items-center justify-center border-b border-blue-100">
-                <PlaneTakeoff className="w-12 h-12 sm:w-16 sm:h-16 text-blue-300 group-hover:scale-110 group-hover:text-blue-400 transition-all duration-500" />
-              </div>
-              <div className="p-5 flex-1 flex flex-col justify-between relative z-10">
-                <div>
-                  <h3 className="text-sm font-display font-bold text-slate-900 mb-2">Express Air Cargo</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Fast weekly cargo flights departing Guangzhou airport directly to Lagos Ikeja Hub. Ideal for time-critical commercial imports.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 2: Ocean Freight */}
-            <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
-              <div className="h-24 sm:h-32 w-full relative overflow-hidden bg-indigo-50 flex items-center justify-center border-b border-indigo-100">
-                <Container className="w-12 h-12 sm:w-16 sm:h-16 text-indigo-300 group-hover:scale-110 group-hover:text-indigo-400 transition-all duration-500" />
-              </div>
-              <div className="p-5 flex-1 flex flex-col justify-between relative z-10">
-                <div>
-                  <h3 className="text-sm font-display font-bold text-slate-900 mb-2">Ocean Freight (LCL/FCL)</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Affordable container consolidation. We charge precise CBM volume, protecting bulk imports, machinery, and commercial stocks.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 3: Guangzhou Warehousing */}
-            <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
-              <div className="h-24 sm:h-32 w-full relative overflow-hidden bg-amber-50 flex items-center justify-center border-b border-amber-100">
-                <Warehouse className="w-12 h-12 sm:w-16 sm:h-16 text-amber-300 group-hover:scale-110 group-hover:text-amber-400 transition-all duration-500" />
-              </div>
-              <div className="p-5 flex-1 flex flex-col justify-between relative z-10">
-                <div>
-                  <h3 className="text-sm font-display font-bold text-slate-900 mb-2">Guangzhou Warehousing</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Accepting and cataloging goods directly from your 1688, Taobao, or local Chinese manufacturers. Free count verification.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 4: Lagos Port Clearance */}
-            <div className="glass-panel glass-panel-hover rounded-2xl relative overflow-hidden group flex flex-col">
-              <div className="h-24 sm:h-32 w-full relative overflow-hidden bg-emerald-50 flex items-center justify-center border-b border-emerald-100">
-                <ShieldCheck className="w-12 h-12 sm:w-16 sm:h-16 text-emerald-300 group-hover:scale-110 group-hover:text-emerald-400 transition-all duration-500" />
-              </div>
-              <div className="p-5 flex-1 flex flex-col justify-between relative z-10">
-                <div>
-                  <h3 className="text-sm font-display font-bold text-slate-900 mb-2">Lagos Port Clearance</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Full-scale customs documentation, shipping agent settlements, and Apapa / Tincan port clearance handled seamlessly by us.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* Estimator */}
-        <section id="estimator" className="py-14 sm:py-20 bg-blue-100 border-y border-blue-200 relative">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              
-              <div className="lg:col-span-5 space-y-5">
-                <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 uppercase tracking-wider">
-                  <Calculator className="w-4 h-4" />
-                  Interactive Estimator
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight leading-tight text-balance">
-                  Instant Volume & CBM Estimator
-                </h2>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  Avoid cargo surprises. Calculate the volumetric cubic meters (CBM) of your delivery cartons to forecast accurate sea shipping costs, or evaluate the volumetric weight for cargo flights.
-                </p>
-                
-                <div className="space-y-3.5 pt-3 border-t border-blue-200/70">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/15 flex items-center justify-center text-blue-600 shrink-0 mt-0.5">
-                      <Clock className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-900 font-display">Fast Rate Approximation</p>
-                      <p className="text-xs text-slate-600">Volumetric rates apply standard multiplier formulas for transparency.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/15 flex items-center justify-center text-blue-600 shrink-0 mt-0.5">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-900 font-display">LCL Container Optimization</p>
-                      <p className="text-xs text-slate-600">Estimates if your bulk load qualifies as full container or partial consolidated.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-7 glass-panel p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 relative overflow-hidden">
-                <div className="space-y-4">
-                  <h3 className="text-xs font-display font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
-                    1. Input Package Dimensions
-                  </h3>
-                  
-                  <div className="grid grid-cols-3 gap-2.5">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">L (cm)</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        value={length}
-                        onChange={(e) => setLength(Math.max(1, parseInt(e.target.value) || 0))}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">W (cm)</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        value={width}
-                        onChange={(e) => setWidth(Math.max(1, parseInt(e.target.value) || 0))}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1 uppercase">H (cm)</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        value={height}
-                        onChange={(e) => setHeight(Math.max(1, parseInt(e.target.value) || 0))}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase">Total Packages / Cartons</label>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        value={cartons}
-                        onChange={(e) => setCartons(Math.max(1, parseInt(e.target.value) || 0))}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase">Rate / {freightType === 'sea' ? 'CBM' : 'Kg'} ($)</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          value={rateUsd || ""}
-                          placeholder="e.g., 200"
-                          onChange={(e) => setRateUsd(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1.5 uppercase">Rate / {freightType === 'sea' ? 'CBM' : 'Kg'} (₦)</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          value={rateNgn || ""}
-                          placeholder="e.g., 300000"
-                          onChange={(e) => setRateNgn(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 min-h-[44px] text-base sm:text-sm text-slate-900 font-semibold font-mono focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-1">
-                    <span className="block text-[11px] font-semibold text-slate-600 mb-2 uppercase">Freight Priority Filter</span>
-                    <div className="flex gap-2 p-1 bg-white rounded-xl border border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => setFreightType("sea")}
-                        className={`flex-1 min-h-[44px] py-2 rounded-lg text-xs font-bold tracking-wide uppercase transition-all ${freightType === "sea" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-                      >
-                        Sea Cargo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFreightType("air")}
-                        className={`flex-1 min-h-[44px] py-2 rounded-lg text-xs font-bold tracking-wide uppercase transition-all ${freightType === "air" ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-                      >
-                        Air Cargo
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="clay-card-slate p-4 sm:p-5 flex flex-col justify-between border border-slate-200">
-                  <div>
-                    <h3 className="text-xs font-display font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-4">
-                      2. Calculation Metrics
-                    </h3>
-                    
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center gap-2 text-xs sm:text-sm">
-                        <span className="text-slate-600">Total Volume:</span>
-                        <span className="text-slate-900 font-bold font-mono tabular-nums bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
-                          {calculatedCbm.toFixed(3)} CBM
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-2 text-xs sm:text-sm">
-                        <span className="text-slate-600">Air Vol Weight:</span>
-                        <span className="text-slate-900 font-bold font-mono tabular-nums bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
-                          {airVolumetricWeight.toFixed(1)} kg
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-2 text-xs sm:text-sm">
-                        <span className="text-slate-600">Est. Cost (USD):</span>
-                        <span className="text-blue-700 font-bold font-mono tabular-nums bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
-                          ${estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-2 text-xs sm:text-sm">
-                        <span className="text-slate-600">Est. Cost (NGN):</span>
-                        <span className="text-emerald-700 font-bold font-mono tabular-nums bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                          ₦{estimatedCostNgn.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center gap-2 text-xs sm:text-sm pt-2.5 border-t border-slate-200">
-                        <span className="text-slate-600 font-medium">Best Shipping Choice:</span>
-                        <span className="text-blue-700 font-bold font-display">
-                          {recommendedMode}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 mt-4 border-t border-slate-200 text-xs text-slate-600 flex items-start gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
-                    <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-slate-900 font-display">Transit Overview</p>
-                      <p className="text-xs text-slate-600 leading-normal mt-0.5">
-                        {freightType === "sea" ? "Estimated sea voyage 35-45 days. Consolidations depart Guangzhou every Saturday." : "Express flight departs Guangzhou airport Tuesday/Friday. 5-7 days clearance lag."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+          <div>
+            <p className="font-semibold text-[#0B1220] mb-3">Services</p>
+            <div className="flex flex-col gap-1.5">
+              <a href="#services" className="hover:text-[#0A54E1]">Express air</a>
+              <a href="#services" className="hover:text-[#0A54E1]">Ocean freight</a>
+              <a href="#track" className="hover:text-[#0A54E1]">Cargo tracking</a>
+              <a href="#calculator" className="hover:text-[#0A54E1]">CBM calculator</a>
+              <Link to="/login" className="hover:text-[#0A54E1]">Client portal</Link>
             </div>
           </div>
-        </section>
 
-        {/* Timeline / How It Works */}
-        <section id="how-it-works" className="py-14 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight text-balance">
-              A Transparent Tracking Cycle
-            </h2>
-            <p className="mt-3 text-sm text-slate-600 max-w-lg mx-auto">
-              Our automated manifest registry assigns precise tracking numbers and uploads real-time status steps.
+          <div>
+            <p className="font-semibold text-[#0B1220] mb-3">Guangzhou Hub</p>
+            <p className="m-0 leading-relaxed">
+              No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou
+              <br />
+              <span className="text-[#0B1220] font-medium">Bishop:</span>{' '}
+              <a href="tel:+8613250277859" className="hover:text-[#0A54E1]">+86 13250277859</a>
+              <br />
+              <span className="text-[#0B1220] font-medium">Office:</span>{' '}
+              <a href="tel:+8613048001610" className="hover:text-[#0A54E1]">+86 13048001610</a>
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-            <div className="hidden lg:block absolute top-6 left-16 right-16 h-0.5 bg-slate-200 -z-10" />
-
-            <div className="text-center group">
-              <div className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center font-display font-bold text-sm mx-auto mb-4 shadow-md group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-colors duration-300">
-                1
-              </div>
-              <h4 className="text-sm font-display font-bold text-slate-900 mb-2">Inventory Handover</h4>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-[240px] mx-auto">
-                Deliver or forward items from Chinese suppliers to our Guangzhou warehouse, labeled with your shipping mark.
-              </p>
-            </div>
-
-            <div className="text-center group">
-              <div className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center font-display font-bold text-sm mx-auto mb-4 shadow-md group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-colors duration-300">
-                2
-              </div>
-              <h4 className="text-sm font-display font-bold text-slate-900 mb-2">Manifest Cataloging</h4>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-[240px] mx-auto">
-                We inspect volume metrics, record cartons, and initialize your shipment tracking ID into our central database.
-              </p>
-            </div>
-
-            <div className="text-center group">
-              <div className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center font-display font-bold text-sm mx-auto mb-4 shadow-md group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-colors duration-300">
-                3
-              </div>
-              <h4 className="text-sm font-display font-bold text-slate-900 mb-2">En Route Tracking</h4>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-[240px] mx-auto">
-                Your portal dashboard displays departure updates, ocean coordinates, and air freight flight completions.
-              </p>
-            </div>
-
-            <div className="text-center group">
-              <div className="w-12 h-12 bg-white border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center font-display font-bold text-sm mx-auto mb-4 shadow-md group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-colors duration-300">
-                4
-              </div>
-              <h4 className="text-sm font-display font-bold text-slate-900 mb-2">Lagos Arrival</h4>
-              <p className="text-xs text-slate-600 leading-relaxed max-w-[240px] mx-auto">
-                Upon Apapa customs clearing, inspect shipping bills, clear local handling invoices, and pickup goods or request dispatcher.
-              </p>
-            </div>
+          <div>
+            <p className="font-semibold text-[#0B1220] mb-3">Lagos &amp; Warehouse</p>
+            <p className="m-0 leading-relaxed">
+              Apapa &amp; Tin Can Island Clearance Hub • Ikeja Air Cargo Terminal, Lagos
+              <br />
+              Warehouse No.111 North Station South Rd, Guangzhou
+              <br />
+              <a href="tel:+861325077859" className="hover:text-[#0A54E1]">+86 1325077859</a>
+            </p>
           </div>
-        </section>
-
-      
-        {/* Contact Section */}
-        <section id="contact" className="py-14 sm:py-20 bg-blue-100 border-t border-blue-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center mb-10 sm:mb-12">
-              <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight">
-                Our Offices & Hubs
-              </h2>
-              <p className="mt-3 text-xs sm:text-sm text-slate-600">
-                AIR CARGO, SEA SHIPPING, GROUPAGE, FULL CONTAINER AND CLEARING.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
-              {/* China Office */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-4 -mt-4 opacity-50" />
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 font-display mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-500 shrink-0" />
-                  China Office
-                </h3>
-                <address className="not-italic text-xs sm:text-sm text-slate-600 space-y-3 leading-relaxed">
-                  <p>
-                    No.111 Juncture North Station Road<br/>
-                    and Sha Yong South Rd<br/>
-                    Yueixiu District, Guangzhou
-                  </p>
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium">
-                      <span className="text-slate-400 text-xs w-28 shrink-0">BISHOP:</span>
-                      <a href="tel:+8613250277859" className="text-slate-800 hover:text-blue-600 font-mono">+86 13250277859</a>
-                    </p>
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium">
-                      <span className="text-slate-400 text-xs w-28 shrink-0">OFFICE LINE:</span>
-                      <a href="tel:+8613048001610" className="text-slate-800 hover:text-blue-600 font-mono">+86 13048001610</a>
-                    </p>
-                  </div>
-                </address>
-              </div>
-
-              {/* Warehouse */}
-              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-4 -mt-4 opacity-50" />
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 font-display mb-4 flex items-center gap-2">
-                  <Box className="w-5 h-5 text-emerald-500 shrink-0" />
-                  Warehouse Hub
-                </h3>
-                <address className="not-italic text-xs sm:text-sm text-slate-600 space-y-3 leading-relaxed">
-                  <p>
-                    Warehouse No.111 Juncture North Station<br/>
-                    South Road and Sha Yong South Rd<br/>
-                    Yueixiu District, Guangzhou
-                  </p>
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium">
-                      <span className="text-slate-400 text-xs w-28 shrink-0">CONTACT BISHOP:</span>
-                      <a href="tel:+861325077859" className="text-slate-800 hover:text-blue-600 font-mono">+86 1325077859</a>
-                    </p>
-                    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium">
-                      <span className="text-slate-400 text-xs w-28 shrink-0">OFFICE LINE:</span>
-                      <a href="tel:+8613048001610" className="text-slate-800 hover:text-blue-600 font-mono">+86 13048001610</a>
-                    </p>
-                  </div>
-                </address>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-12 sm:py-16 relative z-10 shrink-0 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 pb-10 border-b border-slate-800">
-            
-            <div>
-              <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity mb-4">
-                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
-                  <Package className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <span className="font-display font-bold text-sm text-white block">Deep Down Logistics</span>
-                  <span className="text-[10px] text-blue-400 block font-medium uppercase tracking-wider">Limited</span>
-                </div>
-              </Link>
-              <p className="text-xs leading-relaxed text-slate-400">
-                AIR CARGO, SEA SHIPPING, GROUPAGE, FULL CONTAINER AND CLEARING
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">China Office</h4>
-              <address className="not-italic text-xs leading-relaxed text-slate-400 space-y-1.5">
-                <p>No.111 Juncture North Station Road and Sha Yong South Rd</p>
-                <p>Yueixiu District, Guangzhou</p>
-                <div className="pt-2 space-y-1">
-                  <p className="flex flex-wrap items-center gap-2"><span className="text-slate-500">BISHOP:</span> <a href="tel:+8613250277859" className="hover:text-white">+86 13250277859</a></p>
-                  <p className="flex flex-wrap items-center gap-2"><span className="text-slate-500">OFFICE LINE:</span> <a href="tel:+8613048001610" className="hover:text-white">+86 13048001610</a></p>
-                </div>
-              </address>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">Warehouse Hub</h4>
-              <address className="not-italic text-xs leading-relaxed text-slate-400 space-y-1.5">
-                <p>Warehouse No.111 Juncture North Station South Road and Sha Yong South Rd</p>
-                <p>Yueixiu District, Guangzhou</p>
-                <div className="pt-2 space-y-1">
-                  <p className="flex flex-wrap items-center gap-2"><span className="text-slate-500">CONTACT BISHOP:</span> <a href="tel:+861325077859" className="hover:text-white">+86 1325077859</a></p>
-                  <p className="flex flex-wrap items-center gap-2"><span className="text-slate-500">OFFICE LINE:</span> <a href="tel:+8613048001610" className="hover:text-white">+86 13048001610</a></p>
-                </div>
-              </address>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3 uppercase tracking-wider">Quick Links</h4>
-              <div className="flex flex-col gap-2 text-xs font-medium">
-                <a href="#services" className="hover:text-blue-400 transition-colors w-fit py-0.5">Our Services</a>
-                <a href="#estimator" className="hover:text-blue-400 transition-colors w-fit py-0.5">Cost Estimator</a>
-                <a href="#how-it-works" className="hover:text-blue-400 transition-colors w-fit py-0.5">Shipping Process</a>
-                <a href="#contact" className="hover:text-blue-400 transition-colors w-fit py-0.5">Contact Offices</a>
-                <Link to="/login" className="hover:text-blue-400 transition-colors w-fit py-0.5">Client Portal Access</Link>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6 text-xs text-slate-500 font-medium text-center sm:text-left">
-            <p>© {new Date().getFullYear()} Deep Down Logistics Limited. All rights reserved.</p>
-            <p>Guangzhou Warehouse Hub • Lagos Clearance Port</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
