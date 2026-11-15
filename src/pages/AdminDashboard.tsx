@@ -352,10 +352,18 @@ export default function AdminDashboard() {
     if (!shipment.phone_number) return;
     if (status !== "shipped") return;
 
-    const sendNow = () => {
-      sendPackingListWhatsApp(shipment, status, settings).catch((error) => {
-        console.error("Failed to send WhatsApp status notification:", error);
-      });
+    const sendNow = async () => {
+      try {
+        const res = await sendPackingListWhatsApp(shipment, status, settings);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.sent) {
+          toast.success(`WhatsApp notification sent to ${shipment.shipping_mark || shipment.phone_number}`);
+        } else {
+          toast.error(data.error || "WhatsApp notification could not be sent");
+        }
+      } catch (error) {
+        console.warn("Failed to send WhatsApp status notification:", error);
+      }
     };
 
     // Give the admin a 5-second window to catch an accidental status change

@@ -2,8 +2,58 @@ import express from "express";
 import path from "path";
 import admin from "firebase-admin";
 import fs from "fs";
+import dotenv from "dotenv";
 
 import { getFirestore } from "firebase-admin/firestore";
+
+// Load .env file so real credentials in .env can fallback when process.env contains .env.example placeholders ("MY_*")
+const dotEnvPath = path.resolve(process.cwd(), ".env");
+const parsedDotEnv: Record<string, string> = fs.existsSync(dotEnvPath)
+  ? dotenv.parse(fs.readFileSync(dotEnvPath, "utf-8"))
+  : {};
+
+function cleanEnvValue(raw?: string): string {
+  if (!raw) return "";
+  return raw
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+}
+
+function isPlaceholder(val: string): boolean {
+  if (!val) return true;
+  const upper = val.toUpperCase();
+  return (
+    upper.startsWith("MY_") ||
+    upper.startsWith("YOUR_") ||
+    upper === "PLACEHOLDER" ||
+    upper === "UNDEFINED"
+  );
+}
+
+function getConfigVar(key: string, defaultVal = ""): string {
+  const fromProcess = cleanEnvValue(process.env[key]);
+  if (!isPlaceholder(fromProcess)) {
+    return fromProcess;
+  }
+  const fromDotEnv = cleanEnvValue(parsedDotEnv[key]);
+  if (!isPlaceholder(fromDotEnv)) {
+    return fromDotEnv;
+  }
+  return defaultVal;
+}
+
+function formatMetaError(errObj: any, fallback: string): string {
+  const msg = errObj?.message || fallback;
+  if (errObj?.code === 190) {
+    if (errObj?.error_subcode === 463 || /expired/i.test(msg)) {
+      return `WhatsApp access token has expired. Please generate a new token (or permanent System User token) in Meta App Dashboard and update WHATSAPP_TOKEN.`;
+    }
+    return `Invalid WhatsApp access token. Please verify WHATSAPP_TOKEN in your environment configuration.`;
+  }
+  return msg;
+}
 
 // Initialize Firebase Admin
 let databaseId = "(default)";
@@ -71,8 +121,9 @@ async function uploadWhatsAppImage(token: string, phoneNumberId: string, image: 
   });
   const data = await response.json();
   if (!response.ok || !data?.id) {
-    console.error("WhatsApp media upload error:", JSON.stringify(data));
-    throw new Error(data?.error?.message || "media_upload_failed");
+    const formatted = formatMetaError(data?.error, "media_upload_failed");
+    console.warn("WhatsApp media upload warning:", formatted);
+    throw new Error(formatted);
   }
   return data.id;
 }
@@ -112,8 +163,8 @@ async function copyToSupportInbox(copy: {
   image?: Buffer;
   fileName: string;
 }): Promise<void> {
-  const url = process.env.SUPPORT_INBOX_URL;
-  const secret = process.env.SUPPORT_INBOX_SECRET;
+  const url = getConfigVar("SUPPORT_INBOX_URL");
+  const secret = getConfigVar("SUPPORT_INBOX_SECRET");
   if (!url || !secret || !copy.waMessageId) return;
   try {
     const response = await fetch(`${url.replace(/\/$/, "")}/api/automated-messages`, {
@@ -130,9 +181,9 @@ async function copyToSupportInbox(copy: {
       }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) console.error("Support inbox copy failed:", response.status, await response.text());
+    if (!response.ok) console.warn("Support inbox copy warning:", response.status, await response.text());
   } catch (error) {
-    console.error("Support inbox copy failed:", error);
+    console.warn("Support inbox copy warning:", error);
   }
 }
 
@@ -140,13 +191,16 @@ async function sendWhatsAppStatusUpdate(
   details: StatusNotificationDetails
 ): Promise<{ ok: boolean; error?: string }> {
   const { phoneNumber, shippingMark, trackingId, containerNumber, ctn, cbm, freightUsdPerCbm, clearingNairaPerCbm, status, packingListImage } = details;
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const templateName = process.env.WHATSAPP_TEMPLATE_NAME || "shipment_status_update";
+  const token = getConfigVar("WHATSAPP_TOKEN");
+  const phoneNumberId = getConfigVar("WHATSAPP_PHONE_NUMBER_ID");
+  const templateName = getConfigVar("WHATSAPP_TEMPLATE_NAME", "shipment_status_update");
 
   if (!token || !phoneNumberId) {
     console.warn("WhatsApp not configured (missing WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID); skipping notification.");
-    return { ok: false, error: "not_configured" };
+    return {
+      ok: false,
+      error: "WhatsApp API credentials are not configured. Please set valid WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID.",
+    };
   }
 
   const toNumber = normalizeNigerianNumber(phoneNumber);
@@ -176,7 +230,7 @@ async function sendWhatsAppStatusUpdate(
   };
   const tpl = TEMPLATES[templateName] ?? { language: "en_US", params: Object.keys(allParams) };
   if (tpl.imageHeader && !packingListImage) {
-    console.error(`WhatsApp template ${templateName} needs the shipment's packing-list image; none was sent.`);
+    console.warn(`WhatsApp template ${templateName} needs the shipment's packing-list image; none was sent.`);
     return { ok: false, error: "missing_packing_list_image" };
   }
 
@@ -214,8 +268,9 @@ async function sendWhatsAppStatusUpdate(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("WhatsApp API error:", JSON.stringify(data));
-      return { ok: false, error: data?.error?.message || "whatsapp_api_error" };
+      const formatted = formatMetaError(data?.error, "whatsapp_api_error");
+      console.warn("WhatsApp API warning:", formatted);
+      return { ok: false, error: formatted };
     }
 
     await copyToSupportInbox({
@@ -229,8 +284,9 @@ async function sendWhatsAppStatusUpdate(
 
     return { ok: true };
   } catch (error) {
-    console.error("Error calling WhatsApp API:", error);
-    return { ok: false, error: error instanceof Error ? error.message : "network_error" };
+    const msg = error instanceof Error ? error.message : "network_error";
+    console.warn("WhatsApp notification skipped:", msg);
+    return { ok: false, error: msg };
   }
 }
 
@@ -264,9 +320,8 @@ app.post("/api/notify-status", async (req, res) => {
   });
 
   if (!result.ok) {
-    // Still respond 200-ish so the frontend doesn't treat this as fatal;
-    // just report that the notification didn't go out.
-    return res.status(502).json({ sent: false, error: result.error });
+    // Respond 200 with sent: false so the frontend can display a clear toast without triggering a 502 error
+    return res.status(200).json({ sent: false, error: result.error });
   }
 
   res.json({ sent: true });
@@ -310,7 +365,7 @@ app.get("/api/track/:trackingId", async (req, res) => {
 
 // WhatsApp Webhook Verification
 app.get("/api/whatsapp/webhook", (req, res) => {
-  const verify_token = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+  const verify_token = getConfigVar("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
   
   // Parse params from the webhook verification request
   const mode = req.query["hub.mode"];

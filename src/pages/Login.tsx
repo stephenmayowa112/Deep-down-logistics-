@@ -181,7 +181,7 @@ export default function Login() {
       case "auth/cancelled-popup-request":
         return "Google sign-in was cancelled before completing.";
       case "auth/unauthorized-domain":
-        return "This domain is not authorized for Google Sign-In in Firebase Console.";
+        return `The domain "${window.location.hostname}" is not yet authorized in Firebase. Add "${window.location.hostname}" in Firebase Console → Authentication → Settings → Authorized domains (Project: gen-lang-client-0828454544), or sign in with Email & Password below.`;
       case "auth/web-storage-unsupported":
         return "Browser storage is blocked in this context (try opening the app in a new tab or enabling cookies/storage).";
       case "auth/invalid-credential":
