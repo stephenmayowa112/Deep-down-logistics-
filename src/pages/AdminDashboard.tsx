@@ -463,70 +463,80 @@ export default function AdminDashboard() {
     'out_for_delivery', 'delivered'
   ];
 
+  const groupedShipments: [string, Shipment[]][] = Object.entries(
+    filteredShipments.reduce<Record<string, Shipment[]>>((acc, shipment) => {
+      const key = shipment.container_id || "Unassigned";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(shipment);
+      return acc;
+    }, {})
+  );
+
   return (
-    <div className="h-full bg-slate-50 text-slate-700 flex flex-col font-sans overflow-hidden">
+    <div className="min-h-dvh bg-slate-50 text-slate-700 flex flex-col font-sans overflow-x-clip">
       <Helmet>
         <title>Admin Dashboard - Deep Down Logistics</title>
         <meta name="robots" content="noindex" />
       </Helmet>
-      <header className="h-14 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50 shrink-0">
-        <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15">
+      <header className="h-14 border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 bg-slate-50 shrink-0">
+        <Link to="/" className="flex items-center gap-2.5 sm:gap-3 hover:opacity-90 transition-opacity min-w-0">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/15 shrink-0">
             <Package className="w-4 h-4" />
           </div>
-          <span className="font-semibold tracking-tight text-slate-900">Deep Down Logistics</span>
+          <span className="font-semibold tracking-tight text-slate-900 truncate">Deep Down Logistics</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <span className="text-xs font-medium text-slate-600 hidden sm:block">Admin: {dbUser?.shipping_mark}</span>
           <button 
             onClick={() => auth.signOut()}
-            className="text-slate-500 hover:text-slate-700 transition-colors"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors"
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      
-      <div className="border-b border-slate-200 bg-white px-6 flex items-center gap-6 shrink-0">
+      <div className="border-b border-slate-200 bg-white px-4 sm:px-6 flex items-center gap-6 shrink-0">
         <button
           onClick={() => setActiveTab("shipments")}
-          className={`py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "shipments" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={`min-h-[44px] inline-flex items-center text-sm font-medium border-b-2 transition-colors ${activeTab === "shipments" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
         >
           Shipments
         </button>
         <button
           onClick={() => setActiveTab("settings")}
-          className={`py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === "settings" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+          className={`min-h-[44px] inline-flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "settings" ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"}`}
         >
           <Settings className="w-4 h-4" />
           Settings
         </button>
       </div>
       
-      <main className="flex-1 flex flex-col overflow-hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 flex flex-col max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {activeTab === "settings" && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 max-w-2xl">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 max-w-2xl w-full">
             <div className="mb-8 border-b border-slate-100 pb-8">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">WhatsApp Integration</h2>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input 
-                  type="text" 
+                  type="tel"
+                  inputMode="tel"
                   placeholder="Phone Number (e.g. 2348012345678)" 
                   value={testWhatsAppPhone}
                   onChange={e => setTestWhatsAppPhone(e.target.value)}
-                  className="border border-slate-300 rounded px-3 py-2 text-sm focus:outline-emerald-500 flex-1 max-w-xs"
+                  className="border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-emerald-500 flex-1 sm:max-w-xs"
                 />
                 <button 
                   onClick={testWhatsApp} 
                   disabled={testingWhatsApp || !testWhatsAppPhone} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 min-h-[44px] rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                 >
                   {testingWhatsApp ? "Sending..." : "Send Test Message"}
                 </button>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 This will send a sample "Shipped" status update using the template configured in WHATSAPP_TEMPLATE_NAME.
               </p>
             </div>
@@ -535,7 +545,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Exchange Rate (USD to NGN)</label>
-                  <input type="number" value={settings.exchangeRateUsdNgn} onChange={e => setSettings({...settings, exchangeRateUsdNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" />
+                  <input type="number" inputMode="decimal" value={settings.exchangeRateUsdNgn} onChange={e => setSettings({...settings, exchangeRateUsdNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" />
                 </div>
               </div>
               <div className="border-t border-slate-100 pt-4">
@@ -543,11 +553,11 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Freight Rate per CBM (USD)</label>
-                    <input type="number" value={settings.seaFreightRateUsd} onChange={e => setSettings({...settings, seaFreightRateUsd: Number(e.target.value)})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" />
+                    <input type="number" inputMode="decimal" value={settings.seaFreightRateUsd} onChange={e => setSettings({...settings, seaFreightRateUsd: Number(e.target.value)})} className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Clearing Rate per CBM (NGN)</label>
-                    <input type="number" value={settings.seaClearingRateNgn} onChange={e => setSettings({...settings, seaClearingRateNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" />
+                    <input type="number" inputMode="decimal" value={settings.seaClearingRateNgn} onChange={e => setSettings({...settings, seaClearingRateNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" />
                   </div>
                 </div>
               </div>
@@ -556,16 +566,16 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Freight Rate per Kg (USD)</label>
-                    <input type="number" value={settings.airFreightRateUsd} onChange={e => setSettings({...settings, airFreightRateUsd: Number(e.target.value)})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" />
+                    <input type="number" inputMode="decimal" value={settings.airFreightRateUsd} onChange={e => setSettings({...settings, airFreightRateUsd: Number(e.target.value)})} className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Clearing Rate per Kg (NGN)</label>
-                    <input type="number" value={settings.airClearingRateNgn} onChange={e => setSettings({...settings, airClearingRateNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" />
+                    <input type="number" inputMode="decimal" value={settings.airClearingRateNgn} onChange={e => setSettings({...settings, airClearingRateNgn: Number(e.target.value)})} className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" />
                   </div>
                 </div>
               </div>
               <div className="pt-4 flex justify-end">
-                <button onClick={saveSettings} disabled={savingSettings} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+                <button onClick={saveSettings} disabled={savingSettings} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
                   {savingSettings ? "Saving..." : "Save Settings"}
                 </button>
               </div>
@@ -573,139 +583,135 @@ export default function AdminDashboard() {
           </div>
         )}
         {activeTab === "shipments" && (
-<>
-<div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 shrink-0">
-          <div>
-            <h1 className="text-sm font-medium text-slate-900">Overview</h1>
-            <div className="text-[10px] text-slate-600 mt-1">Manage tracking, container manifests, and delivery statuses.</div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="relative flex-1 min-w-[140px] md:w-64">
-              <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input 
-                type="text"
-                placeholder="Search by Mark, ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs text-slate-800 focus:outline-none focus:border-slate-600 shadow-sm"
-              />
+          <>
+            <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-5 sm:mb-6 shrink-0">
+              <div>
+                <h1 className="text-base sm:text-sm font-semibold text-slate-900">Overview</h1>
+                <div className="text-xs text-slate-600 mt-1">Manage tracking, container manifests, and delivery statuses.</div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+                <div className="relative w-full sm:flex-1 lg:w-64">
+                  <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input 
+                    type="text"
+                    placeholder="Search by Mark, ID..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[38px] bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-slate-800 focus:outline-none focus:border-slate-600 shadow-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (filteredShipments.length === 0) {
+                        toast.error("No shipments to download");
+                        return;
+                      }
+                      generateAdminManifestPDF(filteredShipments);
+                      toast.success("Downloading consolidated manifest PDF...");
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-white hover:bg-slate-100 text-slate-800 text-xs font-medium rounded-lg border border-slate-300 transition-colors whitespace-nowrap shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-500" />
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Shipment
+                  </button>
+                  <label className="col-span-2 sm:col-span-1 cursor-pointer inline-flex items-center justify-center gap-2 px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap shadow-sm">
+                    {uploading ? (
+                      <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
+                    ) : (
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                    )}
+                    Import Manifest
+                    <input type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
+                  </label>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                if (filteredShipments.length === 0) {
-                  toast.error("No shipments to download");
-                  return;
-                }
-                generateAdminManifestPDF(filteredShipments);
-                toast.success("Downloading consolidated manifest PDF...");
-              }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-medium rounded-md border border-slate-300 transition-colors whitespace-nowrap shadow-sm"
-            >
-              <Download className="w-3 h-3 text-blue-400" />
-              Download PDF
-            </button>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Shipment
-            </button>
-            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md transition-colors whitespace-nowrap shadow-sm">
-              {uploading ? (
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+
+            {/* Mobile Card Layout */}
+            <div className="md:hidden space-y-4 pb-6">
+              {loading ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-8 flex justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                </div>
+              ) : filteredShipments.length === 0 ? (
+                <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">
+                  No shipments found.
+                </div>
               ) : (
-                <FileSpreadsheet className="w-3 h-3" />
-              )}
-              Import Manifest
-              <input type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFileUpload} disabled={uploading} />
-            </label>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-white text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
-                <tr className="border-b border-slate-200">
-                  <th className="px-4 py-3">ID / Mark</th>
-                  <th className="px-4 py-3">Client Contact (WhatsApp)</th>
-                  <th className="px-4 py-3">Volume</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="text-xs divide-y divide-slate-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                      <div className="flex justify-center">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                groupedShipments.map(([containerId, containerShipments]) => (
+                  <div key={containerId} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-blue-500 shrink-0" />
+                          <span className="text-sm font-semibold text-slate-900 truncate">
+                            Container: <span className="font-mono">{containerId}</span>
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 shrink-0 tabular-nums">
+                          {containerShipments.length} {containerShipments.length === 1 ? "item" : "items"}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredShipments.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                      No shipments found.
-                    </td>
-                  </tr>
-                ) : (
-                  Object.entries(
-                    filteredShipments.reduce((acc, shipment) => {
-                      const key = shipment.container_id || "Unassigned";
-                      if (!acc[key]) acc[key] = [];
-                      acc[key].push(shipment);
-                      return acc;
-                    }, {} as Record<string, Shipment[]>)
-                  ).map(([containerId, containerShipments]) => (
-                    <React.Fragment key={containerId}>
-                      <tr className="bg-slate-50/90 border-y border-slate-200">
-                        <td colSpan={4} className="px-4 py-2 font-medium text-slate-800">
-                          <div className="flex items-center gap-2">
-                            <Package className="w-3.5 h-3.5 text-blue-500" />
-                            <span>Container: <span className="font-mono">{containerId}</span></span>
-                            <span className="text-[10px] text-slate-600 ml-2">({(containerShipments as Shipment[]).length} items)</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <select 
-                            onChange={(e) => updateContainerStatus(containerId, e.target.value)}
-                            className="text-[10px] uppercase font-medium bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Update All To...</option>
-                            {allStatuses.map(status => (
-                              <option key={status} value={status}>
-                                {status.replace(/_/g, " ")}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => {
-                              setManifestModal({ isOpen: true, containerId, shipments: containerShipments as Shipment[] });
-                              setManifestOptions({ loadedDate: "", departureDate: "", exchangeRate: settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toString() : "", freightRate: settings?.seaFreightRateUsd ? settings.seaFreightRateUsd.toString() : "", clearingRate: settings?.seaClearingRateNgn ? settings.seaClearingRateNgn.toString() : "" });
-                            }}
-                            className="ml-2 inline-flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 text-[10px] font-medium rounded border border-slate-300 transition-colors shadow-sm"
-                          >
-                            <Download className="w-3 h-3 text-blue-400" />
-                            Packing List
-                          </button>
+                      <div className="flex items-center gap-2">
+                        <select
+                          onChange={(e) => updateContainerStatus(containerId, e.target.value)}
+                          className="flex-1 min-h-[44px] text-xs uppercase font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Update All To...</option>
+                          {allStatuses.map(status => (
+                            <option key={status} value={status}>
+                              {status.replace(/_/g, " ")}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            setManifestModal({ isOpen: true, containerId, shipments: containerShipments });
+                            setManifestOptions({ loadedDate: "", departureDate: "", exchangeRate: settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toString() : "", freightRate: settings?.seaFreightRateUsd ? settings.seaFreightRateUsd.toString() : "", clearingRate: settings?.seaClearingRateNgn ? settings.seaClearingRateNgn.toString() : "" });
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 px-3 min-h-[44px] bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium rounded-lg border border-slate-300 transition-colors shadow-sm shrink-0"
+                        >
+                          <Download className="w-3.5 h-3.5 text-blue-500" />
+                          Packing List
+                        </button>
+                      </div>
+                    </div>
 
-                        </td>
-                      </tr>
-                      {(containerShipments as Shipment[]).map((shipment) => (
-                        <tr key={shipment.id} className="hover:bg-slate-50/60">
-                          <td className="px-4 py-3">
-                            <div className="font-mono text-slate-600">{shipment.tracking_id}</div>
-                            <div className="font-medium text-slate-800 mt-0.5">{shipment.shipping_mark}</div>
-                          </td>
-                          <td className="px-4 py-3">
+                    <div className="divide-y divide-slate-200">
+                      {containerShipments.map((shipment) => (
+                        <div key={shipment.id} className="p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-mono text-xs text-slate-500 truncate">{shipment.tracking_id}</div>
+                              <div className="font-semibold text-sm text-slate-900 mt-0.5 break-words">{shipment.shipping_mark}</div>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full border text-[11px] font-medium whitespace-nowrap shrink-0 ${getStatusColor(shipment.status)}`}>
+                              {shipment.status.replace(/_/g, " ").toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-slate-600 tabular-nums">
+                            <span className="font-medium text-slate-800">{shipment.cbm} CBM</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-300" />
+                            <span>{shipment.ctn} CTN</span>
+                          </div>
+
+                          <div className="pt-0.5">
                             {editingPhoneId === shipment.id ? (
-                              <div className="flex items-center gap-1.5 max-w-[230px]">
+                              <div className="flex items-center gap-2">
                                 <input
-                                  type="text"
+                                  type="tel"
+                                  inputMode="tel"
                                   value={editingPhoneValue}
                                   onChange={(e) => setEditingPhoneValue(e.target.value)}
                                   onKeyDown={(e) => {
@@ -714,94 +720,252 @@ export default function AdminDashboard() {
                                   }}
                                   placeholder="e.g. 08031234567"
                                   autoFocus
-                                  className="w-full px-2 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
+                                  className="flex-1 min-w-0 px-3 py-2 min-h-[44px] text-base border border-blue-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
                                 />
                                 <button
                                   onClick={() => handleSavePhone(shipment.id)}
                                   disabled={savingPhone}
-                                  className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                                  className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shrink-0"
                                   title="Save Phone Number"
+                                  aria-label="Save Phone Number"
                                 >
-                                  <Check className="w-3.5 h-3.5" />
+                                  <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => setEditingPhoneId(null)}
                                   disabled={savingPhone}
-                                  className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-colors"
+                                  className="min-w-[44px] min-h-[44px] flex items-center justify-center bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors shrink-0"
                                   title="Cancel"
+                                  aria-label="Cancel"
                                 >
-                                  <X className="w-3.5 h-3.5" />
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 group">
-                                <span className={shipment.phone_number ? "text-slate-800 font-mono" : "text-amber-600 italic"}>
-                                  {shipment.phone_number || "No WhatsApp #"}
-                                </span>
+                              <div className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200/80">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span className={`text-xs truncate ${shipment.phone_number ? "text-slate-800 font-mono" : "text-amber-600 italic"}`}>
+                                    {shipment.phone_number || "No WhatsApp #"}
+                                  </span>
+                                </div>
                                 <button
                                   onClick={() => {
                                     setEditingPhoneId(shipment.id);
                                     setEditingPhoneValue(shipment.phone_number || "");
                                   }}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
-                                  title="Edit customer WhatsApp number"
+                                  className="inline-flex items-center gap-1.5 px-2.5 min-h-[36px] text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md border border-blue-200 transition-colors shrink-0"
                                 >
-                                  <Pencil className="w-2.5 h-2.5" />
+                                  <Pencil className="w-3 h-3" />
                                   {shipment.phone_number ? "Edit" : "Add #"}
                                 </button>
                               </div>
                             )}
-                            <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-slate-700">{shipment.cbm} CBM</div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] whitespace-nowrap ${getStatusColor(shipment.status)}`}>
-                              {shipment.status.replace(/_/g, " ").toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {shipment.status !== 'delivered' && (
-                                <button
-                                  onClick={() => updateStatus(shipment.id, 'delivered')}
-                                  className="text-emerald-500 hover:text-emerald-400 p-1 rounded hover:bg-emerald-500/10 transition-colors"
-                                  title="Mark as Delivered"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
-                              )}
-                              <select 
-                                value={shipment.status}
-                                onChange={(e) => updateStatus(shipment.id, e.target.value)}
-                                className="text-[10px] uppercase font-medium bg-slate-50 border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <select
+                              value={shipment.status}
+                              onChange={(e) => updateStatus(shipment.id, e.target.value)}
+                              className="flex-1 min-h-[44px] text-xs uppercase font-medium bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
+                              {allStatuses.map(status => (
+                                <option key={status} value={status}>
+                                  {status.replace(/_/g, " ")}
+                                </option>
+                              ))}
+                            </select>
+                            {shipment.status !== 'delivered' && (
+                              <button
+                                onClick={() => updateStatus(shipment.id, 'delivered')}
+                                className="inline-flex items-center gap-1.5 px-3 min-h-[44px] text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shrink-0"
+                                title="Mark as Delivered"
                               >
+                                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                Deliver
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table Layout */}
+            <div className="hidden md:flex bg-white rounded-xl border border-slate-200 flex-1 flex-col overflow-hidden">
+              <div className="flex-1 overflow-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-white text-[10px] uppercase font-bold text-slate-500 sticky top-0 z-10">
+                    <tr className="border-b border-slate-200">
+                      <th className="px-4 py-3">ID / Mark</th>
+                      <th className="px-4 py-3">Client Contact (WhatsApp)</th>
+                      <th className="px-4 py-3">Volume</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-xs divide-y divide-slate-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                          <div className="flex justify-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredShipments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                          No shipments found.
+                        </td>
+                      </tr>
+                    ) : (
+                      groupedShipments.map(([containerId, containerShipments]) => (
+                        <React.Fragment key={containerId}>
+                          <tr className="bg-slate-50/90 border-y border-slate-200">
+                            <td colSpan={4} className="px-4 py-2 font-medium text-slate-800">
+                              <div className="flex items-center gap-2">
+                                <Package className="w-3.5 h-3.5 text-blue-500" />
+                                <span>Container: <span className="font-mono">{containerId}</span></span>
+                                <span className="text-[10px] text-slate-600 ml-2">({containerShipments.length} items)</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-right whitespace-nowrap">
+                              <select 
+                                onChange={(e) => updateContainerStatus(containerId, e.target.value)}
+                                className="text-[10px] uppercase font-medium bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                defaultValue=""
+                              >
+                                <option value="" disabled>Update All To...</option>
                                 {allStatuses.map(status => (
                                   <option key={status} value={status}>
                                     {status.replace(/_/g, " ")}
                                   </option>
                                 ))}
                               </select>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </>)}
+                              <button
+                                onClick={() => {
+                                  setManifestModal({ isOpen: true, containerId, shipments: containerShipments });
+                                  setManifestOptions({ loadedDate: "", departureDate: "", exchangeRate: settings?.exchangeRateUsdNgn ? settings.exchangeRateUsdNgn.toString() : "", freightRate: settings?.seaFreightRateUsd ? settings.seaFreightRateUsd.toString() : "", clearingRate: settings?.seaClearingRateNgn ? settings.seaClearingRateNgn.toString() : "" });
+                                }}
+                                className="ml-2 inline-flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-slate-200 text-slate-700 text-[10px] font-medium rounded border border-slate-300 transition-colors shadow-sm"
+                              >
+                                <Download className="w-3 h-3 text-blue-400" />
+                                Packing List
+                              </button>
+                            </td>
+                          </tr>
+                          {containerShipments.map((shipment) => (
+                            <tr key={shipment.id} className="hover:bg-slate-50/60">
+                              <td className="px-4 py-3">
+                                <div className="font-mono text-slate-600">{shipment.tracking_id}</div>
+                                <div className="font-medium text-slate-800 mt-0.5">{shipment.shipping_mark}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {editingPhoneId === shipment.id ? (
+                                  <div className="flex items-center gap-1.5 max-w-[230px]">
+                                    <input
+                                      type="text"
+                                      value={editingPhoneValue}
+                                      onChange={(e) => setEditingPhoneValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSavePhone(shipment.id);
+                                        if (e.key === "Escape") setEditingPhoneId(null);
+                                      }}
+                                      placeholder="e.g. 08031234567"
+                                      autoFocus
+                                      className="w-full px-2 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
+                                    />
+                                    <button
+                                      onClick={() => handleSavePhone(shipment.id)}
+                                      disabled={savingPhone}
+                                      className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                                      title="Save Phone Number"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingPhoneId(null)}
+                                      disabled={savingPhone}
+                                      className="p-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded transition-colors"
+                                      title="Cancel"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 group">
+                                    <span className={shipment.phone_number ? "text-slate-800 font-mono" : "text-amber-600 italic"}>
+                                      {shipment.phone_number || "No WhatsApp #"}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setEditingPhoneId(shipment.id);
+                                        setEditingPhoneValue(shipment.phone_number || "");
+                                      }}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                                      title="Edit customer WhatsApp number"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                      {shipment.phone_number ? "Edit" : "Add #"}
+                                    </button>
+                                  </div>
+                                )}
+                                <div className="text-[10px] text-slate-500 mt-0.5">{shipment.container_id}</div>
+                              </td>
+                              <td className="px-4 py-3 tabular-nums">
+                                <div className="text-slate-700">{shipment.cbm} CBM</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{shipment.ctn} CTN</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] whitespace-nowrap ${getStatusColor(shipment.status)}`}>
+                                  {shipment.status.replace(/_/g, " ").toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {shipment.status !== 'delivered' && (
+                                    <button
+                                      onClick={() => updateStatus(shipment.id, 'delivered')}
+                                      className="text-emerald-500 hover:text-emerald-400 p-1 rounded hover:bg-emerald-500/10 transition-colors"
+                                      title="Mark as Delivered"
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <select 
+                                    value={shipment.status}
+                                    onChange={(e) => updateStatus(shipment.id, e.target.value)}
+                                    className="text-[10px] uppercase font-medium bg-slate-50 border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                                  >
+                                    {allStatuses.map(status => (
+                                      <option key={status} value={status}>
+                                        {status.replace(/_/g, " ")}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <form onSubmit={handleCreateShipment} className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <form onSubmit={handleCreateShipment} className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Add New Shipment</h3>
                 <p className="text-xs text-slate-500">Create a single shipment with customer WhatsApp contact</p>
@@ -809,12 +973,13 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 text-slate-400 hover:text-slate-600 transition-colors rounded-lg"
+                aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Container Number *</label>
@@ -822,7 +987,7 @@ export default function AdminDashboard() {
                     type="text"
                     required
                     placeholder="e.g., CON-NGA-091"
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500"
                     value={newShipmentForm.container_id}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, container_id: e.target.value })}
                   />
@@ -833,7 +998,7 @@ export default function AdminDashboard() {
                     type="text"
                     required
                     placeholder="e.g., BIGFISH"
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500"
                     value={newShipmentForm.shipping_mark}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, shipping_mark: e.target.value })}
                   />
@@ -843,28 +1008,30 @@ export default function AdminDashboard() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Customer WhatsApp Number</label>
                 <div className="relative">
-                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="tel"
                     placeholder="e.g., 08031234567 or 2348031234567"
-                    className="w-full border border-slate-300 rounded pl-8 pr-3 py-2 text-sm focus:outline-blue-500 font-mono"
+                    className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 font-mono"
                     value={newShipmentForm.phone_number}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, phone_number: e.target.value })}
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Local Nigerian numbers (080...) are automatically formatted to +234 for WhatsApp.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity (CTN) *</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="1"
                     required
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums"
                     value={newShipmentForm.ctn}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, ctn: e.target.value })}
                   />
@@ -873,23 +1040,25 @@ export default function AdminDashboard() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Volume (CBM) *</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
                     min="0.01"
                     required
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums"
                     value={newShipmentForm.cbm}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, cbm: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Freight Rate (USD/CBM)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     placeholder={`Default: ${settings?.seaFreightRateUsd || 180}`}
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums"
                     value={newShipmentForm.freight_usd_per_cbm}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, freight_usd_per_cbm: e.target.value })}
                   />
@@ -898,8 +1067,9 @@ export default function AdminDashboard() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Clearing Rate (NGN/CBM)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     placeholder={`Default: ${settings?.seaClearingRateNgn || 300000}`}
-                    className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums"
                     value={newShipmentForm.clearing_naira_per_cbm}
                     onChange={(e) => setNewShipmentForm({ ...newShipmentForm, clearing_naira_per_cbm: e.target.value })}
                   />
@@ -911,7 +1081,7 @@ export default function AdminDashboard() {
                 <select
                   value={newShipmentForm.status}
                   onChange={(e) => setNewShipmentForm({ ...newShipmentForm, status: e.target.value as ShipmentStatus })}
-                  className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500 uppercase bg-white"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 uppercase bg-white"
                 >
                   {allStatuses.map((status) => (
                     <option key={status} value={status}>
@@ -920,24 +1090,24 @@ export default function AdminDashboard() {
                   ))}
                 </select>
                 {newShipmentForm.status === "shipped" && newShipmentForm.phone_number && (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                  <p className="text-xs text-emerald-600 font-medium mt-1">
                     Creating with status "SHIPPED" will automatically send the Packing List WhatsApp notification.
                   </p>
                 )}
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors rounded-lg border border-slate-200 sm:border-transparent bg-white sm:bg-transparent"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={creatingShipment}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50"
               >
                 {creatingShipment ? "Saving..." : "Create Shipment"}
               </button>
@@ -948,42 +1118,52 @@ export default function AdminDashboard() {
 
       {manifestModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-900">Generate Packing List</h3>
-              <p className="text-xs text-slate-500">Container: {manifestModal.containerId}</p>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Generate Packing List</h3>
+                <p className="text-xs text-slate-500">Container: {manifestModal.containerId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManifestModal({ isOpen: false, containerId: "", shipments: [] })}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 text-slate-400 hover:text-slate-600 transition-colors rounded-lg"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Loaded Date</label>
-                <input type="text" placeholder="e.g., 10 Aug 2026" className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" value={manifestOptions.loadedDate} onChange={e => setManifestOptions({...manifestOptions, loadedDate: e.target.value})} />
+                <input type="text" placeholder="e.g., 10 Aug 2026" className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500" value={manifestOptions.loadedDate} onChange={e => setManifestOptions({...manifestOptions, loadedDate: e.target.value})} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Departure Date</label>
-                <input type="text" placeholder="e.g., 12 Aug 2026" className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" value={manifestOptions.departureDate} onChange={e => setManifestOptions({...manifestOptions, departureDate: e.target.value})} />
+                <input type="text" placeholder="e.g., 12 Aug 2026" className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500" value={manifestOptions.departureDate} onChange={e => setManifestOptions({...manifestOptions, departureDate: e.target.value})} />
               </div>
-                            <div>
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Exchange Rate (USD/NGN)</label>
-                <input type="text" placeholder="e.g., 1500" className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" value={manifestOptions.exchangeRate} onChange={e => setManifestOptions({...manifestOptions, exchangeRate: e.target.value})} />
+                <input type="text" inputMode="decimal" placeholder="e.g., 1500" className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" value={manifestOptions.exchangeRate} onChange={e => setManifestOptions({...manifestOptions, exchangeRate: e.target.value})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Freight Rate (USD/CBM)</label>
-                  <input type="text" placeholder="e.g., 180" className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" value={manifestOptions.freightRate} onChange={e => setManifestOptions({...manifestOptions, freightRate: e.target.value})} />
+                  <input type="text" inputMode="decimal" placeholder="e.g., 180" className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" value={manifestOptions.freightRate} onChange={e => setManifestOptions({...manifestOptions, freightRate: e.target.value})} />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Clearing Rate (NGN/CBM)</label>
-                  <input type="text" placeholder="e.g., 300000" className="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-blue-500" value={manifestOptions.clearingRate} onChange={e => setManifestOptions({...manifestOptions, clearingRate: e.target.value})} />
+                  <input type="text" inputMode="decimal" placeholder="e.g., 300000" className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 tabular-nums" value={manifestOptions.clearingRate} onChange={e => setManifestOptions({...manifestOptions, clearingRate: e.target.value})} />
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-              <button onClick={() => setManifestModal({ isOpen: false, containerId: "", shipments: [] })} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 shrink-0">
+              <button onClick={() => setManifestModal({ isOpen: false, containerId: "", shipments: [] })} className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors rounded-lg border border-slate-200 sm:border-transparent bg-white sm:bg-transparent">Cancel</button>
               <button onClick={() => {
                  generateClientManifestPDF("VARIOUS", "", manifestModal.shipments, settings, manifestOptions);
                  setManifestModal({ isOpen: false, containerId: "", shipments: [] });
                  toast.success("Packing List Downloaded");
-              }} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
+              }} className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
                 Download PDF
               </button>
             </div>
