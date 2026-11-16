@@ -97,7 +97,7 @@ export default function TermsOfService() {
             <h2 className="text-xl font-bold text-[#0B1220]">5. Contact Information</h2>
             <div className="text-sm text-[#0B1220] space-y-1.5">
               <p>
-                <strong>Company:</strong> Deep Down Logistics Limited
+                <strong>Company:</strong> De Great Deep Down Logistics Limited
               </p>
               <p>
                 <strong>Website:</strong>{" "}
@@ -112,7 +112,10 @@ export default function TermsOfService() {
                 </a>
               </p>
               <p>
-                <strong>Guangzhou Hub:</strong> No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou (+86 13250277859)
+                <strong>Lagos Office:</strong> B77 Plaza, A.P.T, Trade Fair International Market, Badagry Expressway (08067635193, 07065252406)
+              </p>
+              <p>
+                <strong>China Hubs:</strong> Guangzhou (Room 105, Building 3, No. 72 Shiqing Road, Baiyun District) &amp; Yiwu (Unit 2, Block 9 West Ho Second District, Houzhai) • +86 13143335303
               </p>
             </div>
           </section>

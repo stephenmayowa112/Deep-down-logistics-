@@ -162,6 +162,9 @@ export default function Home() {
             <a href="#track" className="text-[#0B1220] hover:opacity-65 transition-opacity">
               Track
             </a>
+            <Link to="/contact" className="text-[#0B1220] hover:opacity-65 transition-opacity">
+              Contact
+            </Link>
             <Link
               to="/login"
               className="px-5 py-[11px] text-[#0B1220] hover:opacity-65 transition-opacity"
@@ -233,6 +236,13 @@ export default function Home() {
             >
               Track cargo
             </a>
+            <Link
+              to="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 px-3 rounded-xl hover:bg-white transition-colors"
+            >
+              Contact us
+            </Link>
             <div className="pt-2 border-t border-[#E3E8F0] flex flex-col sm:flex-row gap-2.5">
               <Link
                 to="/login"
@@ -268,8 +278,8 @@ export default function Home() {
             made simple.
           </h1>
 
-          <p className="rise d2 text-[17px] sm:text-[19px] text-[#4B5565] max-w-[520px] mx-auto mt-6 sm:mt-7 mb-8 sm:mb-10 px-2">
-            Air cargo in 5–7 days. Ocean freight in 35–45. Track every shipment from the first mile to Apapa.
+          <p className="rise d2 text-[17px] sm:text-[19px] text-[#4B5565] max-w-[600px] mx-auto mt-6 sm:mt-7 mb-8 sm:mb-10 px-2">
+            Groupage shipping and cargo logistics from China to Nigeria. Air, sea and road, with delivery to every state and the FCT.
           </p>
 
           <a
@@ -413,6 +423,13 @@ export default function Home() {
           {trackingError && (
             <p className="mt-3 text-sm text-red-600 font-medium">{trackingError}</p>
           )}
+
+          {/* About Strip */}
+          <div className="max-w-[760px] mx-auto mt-10 sm:mt-12 bg-[#F1F4F9] border border-[#E3E8F0] rounded-[24px] px-6 py-5 sm:px-8 sm:py-6 text-left sm:text-center">
+            <p className="text-[15px] sm:text-[16px] text-[#4B5565] m-0 leading-relaxed">
+              <strong className="text-[#0B1220] font-semibold">De Great Deep Down Logistics Limited</strong> is a Lagos-based groupage shipping and cargo logistics company. We run our own offices and warehouses in Guangzhou and Yiwu, so your goods are received, consolidated and shipped by people you can call.
+            </p>
+          </div>
         </section>
 
         {/* Services Section */}
@@ -421,10 +438,10 @@ export default function Home() {
             SERVICES
           </p>
           <h2 className="font-bold text-3xl sm:text-[44px] tracking-[-0.03em] leading-[1.1] mb-8 sm:mb-12">
-            Two ways to move your cargo.
+            Three ways to move your cargo.
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Express Air Card */}
             <div className="service-card-minimal bg-[#F1F4F9] rounded-[28px] p-7 sm:py-12 sm:px-10 flex flex-col justify-between">
               <div>
@@ -489,11 +506,11 @@ export default function Home() {
                     strokeLinecap="round"
                   />
                 </svg>
-                <h3 className="font-semibold text-2xl sm:text-[28px] tracking-[-0.02em] mb-3">
+                <h3 className="font-semibold text-2xl sm:text-[26px] tracking-[-0.02em] mb-3">
                   Ocean freight
                 </h3>
                 <p className="text-[#4B5565] mb-4">
-                  Arrives in 35–45 days. The economical choice for bulk and containers.
+                  Arrives in 35–45 days. The economical choice for bulk and containers. Container and groupage options.
                 </p>
                 <p className="text-xs font-medium text-[#6B7585] mb-8">
                   Current rate: <span className="text-[#0B1220] font-semibold">${settings.seaFreightRateUsd}/CBM</span> freight •{' '}
@@ -508,6 +525,48 @@ export default function Home() {
                 >
                   SHIP BY SEA →
                 </button>
+              </div>
+            </div>
+
+            {/* Nationwide Delivery Card */}
+            <div className="service-card-minimal bg-[#F1F4F9] rounded-[28px] p-7 sm:py-12 sm:px-9 flex flex-col justify-between">
+              <div>
+                <svg
+                  width="72"
+                  height="72"
+                  viewBox="0 0 72 72"
+                  aria-hidden="true"
+                  className="block mb-7"
+                >
+                  <circle cx="36" cy="36" r="36" fill="#FFFFFF" />
+                  <rect x="16" y="25" width="24" height="16" rx="3" fill="#0A54E1" />
+                  <path d="M40 29 H49 L55 36 V41 H40 Z" fill="#F28C28" />
+                  <circle cx="24" cy="44" r="4.5" fill="#0B1220" />
+                  <circle cx="47" cy="44" r="4.5" fill="#0B1220" />
+                  <path
+                    d="M16 51 H56"
+                    stroke="#7FA8F5"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <h3 className="font-semibold text-2xl sm:text-[26px] tracking-[-0.02em] mb-3">
+                  Nationwide delivery
+                </h3>
+                <p className="text-[#4B5565] mb-4">
+                  Waybill delivery to all states and the FCT.
+                </p>
+                <p className="text-xs font-medium text-[#6B7585] mb-8">
+                  Direct dispatch from our Lagos Trade Fair hub to your doorstep or state park.
+                </p>
+              </div>
+              <div>
+                <a
+                  href="#offices"
+                  className="arrow-link-minimal text-[#0A54E1] font-semibold text-[14px] tracking-[0.06em]"
+                >
+                  OUR OFFICES →
+                </a>
               </div>
             </div>
           </div>
@@ -527,21 +586,21 @@ export default function Home() {
               <p className="font-bold text-[15px] text-[#0A54E1] mb-2">01</p>
               <h3 className="font-semibold text-[20px] mb-2">Ship</h3>
               <p className="text-[#4B5565] m-0">
-                Choose air or ocean and send your goods from Guangzhou.
+                Send your goods to our Guangzhou or Yiwu warehouse.
               </p>
             </div>
             <div className="how-step-minimal">
               <p className="font-bold text-[15px] text-[#0A54E1] mb-2">02</p>
               <h3 className="font-semibold text-[20px] mb-2">Track</h3>
               <p className="text-[#4B5565] m-0">
-                View your manifest and live cargo status in your dashboard.
+                Follow your cargo from our dashboard.
               </p>
             </div>
             <div className="how-step-minimal">
               <p className="font-bold text-[15px] text-[#0A54E1] mb-2">03</p>
               <h3 className="font-semibold text-[20px] mb-2">Receive</h3>
               <p className="text-[#4B5565] m-0">
-                Collect in Lagos with nothing left to chase.
+                Collect at our Lagos office or have it waybilled to your state.
               </p>
             </div>
           </div>
@@ -618,12 +677,12 @@ export default function Home() {
               >
                 {calcOpen ? 'Hide calculator' : 'Open calculator'}
               </button>
-              <a
-                href="#contact"
+              <Link
+                to="/contact"
                 className="pill-btn-minimal border border-white text-white px-8 py-4 rounded-full font-medium text-[15px]"
               >
                 Talk to us
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -856,18 +915,104 @@ export default function Home() {
           )}
         </section>
 
-        {/* Portal Purpose & Compliance Notice (Visible on Homepage for Users & Google Verification) */}
-        <section aria-label="About Deep Down Logistics Portal" className="pb-12 sm:pb-16">
-          <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
-            <p className="text-[12px] font-semibold tracking-[0.12em] text-[#0A54E1] uppercase mb-2">
-              ABOUT THIS APPLICATION
-            </p>
-            <h2 className="font-bold text-xl sm:text-2xl tracking-[-0.02em] text-[#0B1220] mb-2">
-              Commercial Air &amp; Ocean Freight Tracking Portal
-            </h2>
-            <p className="text-sm text-[#4B5565] m-0 leading-relaxed">
-              <strong>Deep Down Logistics</strong> (<a href="https://deepdownlogistics.com" className="text-[#0A54E1] hover:underline">deepdownlogistics.com</a>) is a dedicated commercial logistics and shipment management portal operated by Deep Down Logistics Limited for transporting commercial cargo from Guangzhou, China to Lagos, Nigeria. Customers sign in with Google Sign-In or email strictly to authenticate their identity, view their assigned Shipping Mark manifests, calculate freight volume (CBM), and receive real-time cargo status updates. This platform does not provide AI media or image-generation features and complies fully with the Google APIs Terms of Service and Google API Services User Data Policy.
-            </p>
+        {/* Our Offices Section */}
+        <section id="offices" className="pb-16 sm:pb-24">
+          <p className="text-[13px] font-semibold tracking-[0.12em] text-[#0A54E1] mb-3 uppercase">
+            OUR OFFICES &amp; WAREHOUSES
+          </p>
+          <h2 className="font-bold text-3xl sm:text-[44px] tracking-[-0.03em] leading-[1.1] mb-8 sm:mb-12">
+            Drop off in China, collect in Nigeria.
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
+              <p className="text-xs font-semibold tracking-[0.1em] text-[#0A54E1] uppercase mb-2">
+                Nigeria Head Office &amp; Clearance Hubs
+              </p>
+              <h3 className="font-semibold text-xl text-[#0B1220] mb-3">Lagos</h3>
+              <p className="text-sm text-[#4B5565] leading-relaxed mb-3">
+                B77 Plaza, A.P.T, Trade Fair International Market, Badagry Expressway
+              </p>
+              <p className="text-xs text-[#6B7585] leading-relaxed mb-4">
+                Apapa &amp; Tin Can Island Clearance Hub • Ikeja Air Cargo Terminal, Lagos
+              </p>
+              <div className="text-xs text-[#4B5565] space-y-1 pt-3 border-t border-[#E3E8F0]">
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">Lagos:</span>{' '}
+                  <a href="tel:08067635193" className="hover:text-[#0A54E1]">08067635193</a>,{' '}
+                  <a href="tel:07065252406" className="hover:text-[#0A54E1]">07065252406</a>
+                </p>
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">CEO (Onyemco):</span>{' '}
+                  <a href="tel:08033085846" className="hover:text-[#0A54E1]">08033085846</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
+              <p className="text-xs font-semibold tracking-[0.1em] text-[#0A54E1] uppercase mb-2">
+                China Receiving Hub
+              </p>
+              <h3 className="font-semibold text-xl text-[#0B1220] mb-3">Guangzhou (Baiyun Warehouse)</h3>
+              <p className="text-sm text-[#4B5565] leading-relaxed mb-4">
+                Room 105, Building 3, No. 72 Shiqing Road, Baiyun District, Guangzhou, Guangdong
+              </p>
+              <div className="text-xs text-[#4B5565] space-y-1 pt-3 border-t border-[#E3E8F0]">
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">China office:</span>{' '}
+                  <a href="tel:+8613143335303" className="hover:text-[#0A54E1]">+86 13143335303</a>
+                </p>
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">Tony (Guangzhou/Yiwu):</span>{' '}
+                  <a href="tel:+8618680460400" className="hover:text-[#0A54E1]">+86 18680460400</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
+              <p className="text-xs font-semibold tracking-[0.1em] text-[#0A54E1] uppercase mb-2">
+                China Office &amp; Warehouse Hub
+              </p>
+              <h3 className="font-semibold text-xl text-[#0B1220] mb-3">Guangzhou (Yuexiu Hub)</h3>
+              <p className="text-sm text-[#4B5565] leading-relaxed mb-2">
+                No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou
+              </p>
+              <p className="text-xs text-[#6B7585] leading-relaxed mb-4">
+                Warehouse No.111 North Station South Rd, Guangzhou
+              </p>
+              <div className="text-xs text-[#4B5565] space-y-1 pt-3 border-t border-[#E3E8F0]">
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">Bishop:</span>{' '}
+                  <a href="tel:+8613250277859" className="hover:text-[#0A54E1]">+86 13250277859</a>
+                  {' / '}
+                  <a href="tel:+861325077859" className="hover:text-[#0A54E1]">+86 1325077859</a>
+                </p>
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">Office:</span>{' '}
+                  <a href="tel:+8613048001610" className="hover:text-[#0A54E1]">+86 13048001610</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#F1F4F9] rounded-[24px] p-6 sm:p-8 border border-[#E3E8F0]">
+              <p className="text-xs font-semibold tracking-[0.1em] text-[#0A54E1] uppercase mb-2">
+                China Receiving Hub
+              </p>
+              <h3 className="font-semibold text-xl text-[#0B1220] mb-3">Yiwu warehouse</h3>
+              <p className="text-sm text-[#4B5565] leading-relaxed mb-4">
+                Unit 2, Block 9 West Ho Second District, Houzhai, Yiwu, Zhejiang
+              </p>
+              <div className="text-xs text-[#4B5565] space-y-1 pt-3 border-t border-[#E3E8F0]">
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">Tony (Guangzhou/Yiwu):</span>{' '}
+                  <a href="tel:+8618680460400" className="hover:text-[#0A54E1]">+86 18680460400</a>
+                </p>
+                <p className="m-0">
+                  <span className="text-[#0B1220] font-medium">China office:</span>{' '}
+                  <a href="tel:+8613143335303" className="hover:text-[#0A54E1]">+86 13143335303</a>
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -894,7 +1039,7 @@ export default function Home() {
               </div>
             </Link>
             <p className="m-0">
-              Cargo from Guangzhou to Lagos, by air and sea. Groupage, full container load, and port clearing.
+              Groupage shipping and cargo logistics, China to Nigeria.
             </p>
           </div>
 
@@ -903,8 +1048,11 @@ export default function Home() {
             <div className="flex flex-col gap-1.5">
               <a href="#services" className="hover:text-[#0A54E1]">Express air</a>
               <a href="#services" className="hover:text-[#0A54E1]">Ocean freight</a>
+              <a href="#services" className="hover:text-[#0A54E1]">Nationwide delivery</a>
               <a href="#track" className="hover:text-[#0A54E1]">Cargo tracking</a>
               <a href="#calculator" className="hover:text-[#0A54E1]">CBM calculator</a>
+              <a href="#offices" className="hover:text-[#0A54E1]">Our offices</a>
+              <Link to="/contact" className="hover:text-[#0A54E1]">Contact us</Link>
               <Link to="/login" className="hover:text-[#0A54E1]">Client portal</Link>
               <Link to="/privacy" className="hover:text-[#0A54E1]">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-[#0A54E1]">Terms of Service</Link>
@@ -913,26 +1061,46 @@ export default function Home() {
 
           <div>
             <p className="font-semibold text-[#0B1220] mb-3">Guangzhou Hub</p>
-            <p className="m-0 leading-relaxed">
-              No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou
-              <br />
-              <span className="text-[#0B1220] font-medium">Bishop:</span>{' '}
-              <a href="tel:+8613250277859" className="hover:text-[#0A54E1]">+86 13250277859</a>
-              <br />
-              <span className="text-[#0B1220] font-medium">Office:</span>{' '}
-              <a href="tel:+8613048001610" className="hover:text-[#0A54E1]">+86 13048001610</a>
-            </p>
+            <div className="space-y-2 leading-relaxed">
+              <p className="m-0">
+                No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou
+              </p>
+              <p className="m-0">
+                <span className="text-[#0B1220] font-medium">Bishop:</span>{' '}
+                <a href="tel:+8613250277859" className="hover:text-[#0A54E1]">+86 13250277859</a>
+                <br />
+                <span className="text-[#0B1220] font-medium">Office:</span>{' '}
+                <a href="tel:+8613048001610" className="hover:text-[#0A54E1]">+86 13048001610</a>
+                <br />
+                <span className="text-[#0B1220] font-medium">China office:</span>{' '}
+                <a href="tel:+8613143335303" className="hover:text-[#0A54E1]">+86 13143335303</a>
+                <br />
+                <span className="text-[#0B1220] font-medium">Tony (Guangzhou/Yiwu):</span>{' '}
+                <a href="tel:+8618680460400" className="hover:text-[#0A54E1]">+86 18680460400</a>
+              </p>
+            </div>
           </div>
 
           <div>
             <p className="font-semibold text-[#0B1220] mb-3">Lagos &amp; Warehouse</p>
-            <p className="m-0 leading-relaxed">
-              Apapa &amp; Tin Can Island Clearance Hub • Ikeja Air Cargo Terminal, Lagos
-              <br />
-              Warehouse No.111 North Station South Rd, Guangzhou
-              <br />
-              <a href="tel:+861325077859" className="hover:text-[#0A54E1]">+86 1325077859</a>
-            </p>
+            <div className="space-y-2 leading-relaxed">
+              <p className="m-0">
+                Apapa &amp; Tin Can Island Clearance Hub • Ikeja Air Cargo Terminal, Lagos
+              </p>
+              <p className="m-0">
+                <span className="text-[#0B1220] font-medium">Lagos:</span>{' '}
+                <a href="tel:08067635193" className="hover:text-[#0A54E1]">08067635193</a>,{' '}
+                <a href="tel:07065252406" className="hover:text-[#0A54E1]">07065252406</a>
+                <br />
+                <span className="text-[#0B1220] font-medium">CEO (Onyemco):</span>{' '}
+                <a href="tel:08033085846" className="hover:text-[#0A54E1]">08033085846</a>
+              </p>
+              <p className="m-0">
+                Warehouse No.111 North Station South Rd, Guangzhou
+                <br />
+                <a href="tel:+861325077859" className="hover:text-[#0A54E1]">+86 1325077859</a>
+              </p>
+            </div>
           </div>
         </footer>
       </div>

@@ -133,10 +133,13 @@ export default function PrivacyPolicy() {
                 </a>
               </p>
               <p>
-                <strong>Guangzhou Office:</strong> No.111 Juncture North Station Road &amp; Sha Yong South Rd, Yuexiu District, Guangzhou (+86 13250277859 / +86 13048001610)
+                <strong>Lagos Office:</strong> B77 Plaza, A.P.T, Trade Fair International Market, Badagry Expressway (08067635193, 07065252406 • CEO: 08033085846)
               </p>
               <p>
-                <strong>Lagos Hub:</strong> Apapa &amp; Tin Can Island Clearance Hub • Ikeja Air Cargo Terminal, Lagos, Nigeria
+                <strong>Guangzhou Warehouse:</strong> Room 105, Building 3, No. 72 Shiqing Road, Baiyun District, Guangzhou, Guangdong (+86 13143335303)
+              </p>
+              <p>
+                <strong>Yiwu Warehouse:</strong> Unit 2, Block 9 West Ho Second District, Houzhai, Yiwu, Zhejiang (Tony: +86 18680460400)
               </p>
             </div>
           </section>

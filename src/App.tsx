@@ -14,6 +14,7 @@ import PublicTracking from "./pages/PublicTracking";
 import PackingListPreview from "./pages/PackingListPreview";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import Contact from "./pages/Contact";
 import { Toaster } from "sonner";
 
 const ProtectedRoute = ({ children, allowedRole }: { children: React.ReactNode, allowedRole?: "admin" | "client" }) => {
@@ -44,6 +45,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
