@@ -4,7 +4,7 @@ import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { User } from "../types";
 
-const BOOTSTRAPPED_ADMIN_EMAIL = "stephenmayowa112@gmail.com";
+const BOOTSTRAPPED_SUPER_ADMIN_EMAIL = "stephenmayowa112@gmail.com";
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -36,8 +36,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         const userDocPath = `users/${firebaseUser.uid}`;
         const userDocRef = doc(db, "users", firebaseUser.uid);
-        const isOwnerAdmin =
-          firebaseUser.email?.toLowerCase().trim() === BOOTSTRAPPED_ADMIN_EMAIL &&
+        const normalizedEmail = firebaseUser.email?.toLowerCase().trim() || "";
+        const isOwnerSuperAdmin =
+          normalizedEmail === BOOTSTRAPPED_SUPER_ADMIN_EMAIL &&
           firebaseUser.emailVerified;
 
         unsubscribeDoc = onSnapshot(
@@ -45,14 +46,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           (userDocSnap) => {
             if (userDocSnap.exists()) {
               const data = userDocSnap.data() as Omit<User, "id">;
-              if (isOwnerAdmin && data.role !== "admin") {
-                updateDoc(userDocRef, { role: "admin" }).catch((err) =>
-                  console.error("Failed to promote bootstrapped admin:", err)
-                );
-                setDbUser({ id: userDocSnap.id, ...data, role: "admin" });
-              } else {
-                setDbUser({ id: userDocSnap.id, ...data });
+              const updates: Record<string, unknown> = {};
+
+              if (isOwnerSuperAdmin && data.role !== "super_admin") {
+                updates.role = "super_admin";
+                updates.is_verified = true;
+                updates.account_status = "approved";
               }
+              if (normalizedEmail && !data.email) {
+                updates.email = normalizedEmail;
+              }
+
+              if (Object.keys(updates).length > 0) {
+                updateDoc(userDocRef, updates).catch((err) =>
+                  console.error("Failed to sync user metadata:", err)
+                );
+              }
+
+              setDbUser({
+                id: userDocSnap.id,
+                ...data,
+                ...(isOwnerSuperAdmin
+                  ? { role: "super_admin", is_verified: true, account_status: "approved" }
+                  : {}),
+                email: data.email || normalizedEmail || undefined,
+              });
             } else {
               setDbUser(null);
             }

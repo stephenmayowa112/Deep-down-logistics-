@@ -1,11 +1,19 @@
-export type Role = 'admin' | 'staff' | 'client';
+export type Role = 'super_admin' | 'admin' | 'staff' | 'client';
+
+export type AccountStatus = 'approved' | 'pending' | 'suspended';
 
 export interface User {
   id: string;
+  email?: string;
   role: Role;
   phone_number: string;
   shipping_mark: string;
   is_verified: boolean;
+  account_status?: AccountStatus;
+  created_at?: number;
+  updated_at?: number;
+  last_modified_by?: string;
+  last_modified_by_email?: string;
 }
 
 export type ShipmentStatus = 
@@ -42,6 +50,10 @@ export interface Shipment {
   status: ShipmentStatus;
   created_at: number;
   updated_at: number;
+  last_modified_by?: string;
+  last_modified_by_email?: string;
+  last_modified_by_role?: string;
+  last_modified_action?: string;
 }
 
 export interface TrackingUpdate {
@@ -50,6 +62,8 @@ export interface TrackingUpdate {
   status: ShipmentStatus;
   note: string;
   created_at: number;
+  modified_by?: string;
+  modified_by_email?: string;
 }
 
 export interface PricingSettings {
@@ -58,4 +72,7 @@ export interface PricingSettings {
   seaClearingRateNgn: number;
   airFreightRateUsd: number;
   airClearingRateNgn: number;
+  updated_at?: number;
+  last_modified_by?: string;
+  last_modified_by_email?: string;
 }

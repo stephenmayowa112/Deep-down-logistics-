@@ -1,72 +1,140 @@
 {
-  "collections": [
-    {
-      "name": "users",
-      "fields": [
-        { "name": "role", "type": "string" },
-        { "name": "phone_number", "type": "string" },
-        { "name": "shipping_mark", "type": "string" },
-        { "name": "is_verified", "type": "boolean" }
-      ],
-      "indexes": [
-        { "fields": ["phone_number"] }
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Platform user account (client, base admin, or super admin)",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "staff", "client"] },
+        "phone_number": { "type": "string", "maxLength": 40 },
+        "shipping_mark": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "is_verified": { "type": "boolean" },
+        "account_status": { "type": "string", "enum": ["approved", "pending", "suspended"] },
+        "created_at": { "type": "number" },
+        "updated_at": { "type": "number" },
+        "last_modified_by": { "type": "string", "maxLength": 200 },
+        "last_modified_by_email": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["role", "phone_number", "shipping_mark", "is_verified"]
+    },
+    "Container": {
+      "title": "Container",
+      "description": "Shipping container manifest group",
+      "type": "object",
+      "properties": {
+        "container_number": { "type": "string", "maxLength": 64 },
+        "origin_office": { "type": "string", "maxLength": 100 },
+        "departure_date": { "type": "string", "maxLength": 64 },
+        "created_at": { "type": "number" }
+      },
+      "required": ["container_number", "origin_office", "departure_date", "created_at"]
+    },
+    "Shipment": {
+      "title": "Shipment",
+      "description": "Individual client cargo shipment record with modification audit trail",
+      "type": "object",
+      "properties": {
+        "tracking_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "client_id": { "type": "string", "maxLength": 128 },
+        "container_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "shipping_mark": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "phone_number": { "type": "string", "maxLength": 40 },
+        "ctn": { "type": "number" },
+        "cbm": { "type": "number" },
+        "freight_usd_per_cbm": { "type": "number" },
+        "clearing_naira_per_cbm": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "received_china",
+            "shipped",
+            "in_transit_sea",
+            "in_transit_air",
+            "arrived_lagos",
+            "customs_clearing",
+            "cleared",
+            "ready_for_pickup",
+            "out_for_delivery",
+            "delivered"
+          ]
+        },
+        "created_at": { "type": "number" },
+        "updated_at": { "type": "number" },
+        "last_modified_by": { "type": "string", "maxLength": 200 },
+        "last_modified_by_email": { "type": "string", "maxLength": 200 },
+        "last_modified_by_role": { "type": "string", "maxLength": 64 },
+        "last_modified_action": { "type": "string", "maxLength": 250 }
+      },
+      "required": [
+        "tracking_id",
+        "container_id",
+        "shipping_mark",
+        "phone_number",
+        "ctn",
+        "cbm",
+        "status",
+        "created_at",
+        "updated_at"
       ]
     },
-    {
-      "name": "containers",
-      "fields": [
-        { "name": "container_number", "type": "string" },
-        { "name": "origin_office", "type": "string" },
-        { "name": "departure_date", "type": "string" },
-        { "name": "created_at", "type": "number" }
-      ],
-      "indexes": []
+    "TrackingUpdate": {
+      "title": "TrackingUpdate",
+      "description": "Historical status and modification log entry for a shipment",
+      "type": "object",
+      "properties": {
+        "shipment_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "type": "string" },
+        "note": { "type": "string", "maxLength": 500 },
+        "created_at": { "type": "number" },
+        "modified_by": { "type": "string", "maxLength": 200 },
+        "modified_by_email": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["shipment_id", "status", "note", "created_at"]
     },
-    {
-      "name": "shipments",
-      "fields": [
-        { "name": "tracking_id", "type": "string" },
-        { "name": "client_id", "type": "string" },
-        { "name": "container_id", "type": "string" },
-        { "name": "shipping_mark", "type": "string" },
-        { "name": "phone_number", "type": "string" },
-        { "name": "ctn", "type": "number" },
-        { "name": "cbm", "type": "number" },
-        { "name": "freight_usd_per_cbm", "type": "number" },
-        { "name": "clearing_naira_per_cbm", "type": "number" },
-        { "name": "status", "type": "string" },
-        { "name": "created_at", "type": "number" },
-        { "name": "updated_at", "type": "number" }
-      ],
-      "indexes": [
-        { "fields": ["tracking_id"] },
-        { "fields": ["phone_number"] },
-        { "fields": ["container_id"] },
-        { "fields": ["client_id"] }
+    "PricingSettings": {
+      "title": "PricingSettings",
+      "description": "Global exchange rate and freight/clearing calculator rates",
+      "type": "object",
+      "properties": {
+        "exchangeRateUsdNgn": { "type": "number" },
+        "seaFreightRateUsd": { "type": "number" },
+        "seaClearingRateNgn": { "type": "number" },
+        "airFreightRateUsd": { "type": "number" },
+        "airClearingRateNgn": { "type": "number" },
+        "updated_at": { "type": "number" },
+        "last_modified_by": { "type": "string", "maxLength": 200 },
+        "last_modified_by_email": { "type": "string", "maxLength": 200 }
+      },
+      "required": [
+        "exchangeRateUsdNgn",
+        "seaFreightRateUsd",
+        "seaClearingRateNgn",
+        "airFreightRateUsd",
+        "airClearingRateNgn"
       ]
-    },
-    {
-      "name": "tracking_updates",
-      "fields": [
-        { "name": "shipment_id", "type": "string" },
-        { "name": "status", "type": "string" },
-        { "name": "note", "type": "string" },
-        { "name": "created_at", "type": "number" }
-      ],
-      "indexes": [
-        { "fields": ["shipment_id"] }
-      ]
-    },
-    {
-      "name": "settings",
-      "fields": [
-        { "name": "exchangeRateUsdNgn", "type": "number" },
-        { "name": "seaFreightRateUsd", "type": "number" },
-        { "name": "seaClearingRateNgn", "type": "number" },
-        { "name": "airFreightRateUsd", "type": "number" },
-        { "name": "airClearingRateNgn", "type": "number" }
-      ],
-      "indexes": []
     }
-  ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User accounts for clients, base admins, and super admins"
+    },
+    "/containers/{containerId}": {
+      "schema": { "$ref": "#/entities/Container" },
+      "description": "Shipping containers"
+    },
+    "/shipments/{shipmentId}": {
+      "schema": { "$ref": "#/entities/Shipment" },
+      "description": "Cargo shipments"
+    },
+    "/tracking_updates/{updateId}": {
+      "schema": { "$ref": "#/entities/TrackingUpdate" },
+      "description": "Audit and tracking timeline updates for shipments"
+    },
+    "/settings/{docId}": {
+      "schema": { "$ref": "#/entities/PricingSettings" },
+      "description": "Application pricing and rate settings"
+    }
+  }
 }

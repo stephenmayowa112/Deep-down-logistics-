@@ -22,32 +22,59 @@ service cloud.firestore {
       return resource.data;
     }
 
-    function isBootstrappedAdmin() {
+    function isBootstrappedSuperAdmin() {
       return isAuthenticated() &&
         request.auth.token.email == 'stephenmayowa112@gmail.com' &&
         request.auth.token.email_verified == true;
     }
 
-    function isAdmin() {
-      return isBootstrappedAdmin() || (
+    function isSuperAdmin() {
+      return isBootstrappedSuperAdmin() || (
         isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' &&
+        (!('account_status' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status != 'suspended')
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (
+        isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+        (!('account_status' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status != 'suspended')
       );
     }
 
     function isValidUser(data) {
       return data.keys().hasAll(['role', 'phone_number', 'shipping_mark', 'is_verified']) &&
-        data.keys().hasOnly(['role', 'phone_number', 'shipping_mark', 'is_verified']) &&
-        data.role in ['admin', 'staff', 'client'] &&
+        data.keys().hasOnly([
+          'role', 'phone_number', 'shipping_mark', 'is_verified',
+          'email', 'account_status', 'created_at', 'updated_at',
+          'last_modified_by', 'last_modified_by_email'
+        ]) &&
+        data.role in ['super_admin', 'admin', 'staff', 'client'] &&
         data.phone_number is string && data.phone_number.size() <= 40 &&
         data.shipping_mark is string && data.shipping_mark.size() > 0 && data.shipping_mark.size() <= 100 &&
-        data.is_verified is bool;
+        data.is_verified is bool &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+        (!('account_status' in data) || (data.account_status in ['approved', 'pending', 'suspended'])) &&
+        (!('created_at' in data) || data.created_at is number) &&
+        (!('updated_at' in data) || data.updated_at is number) &&
+        (!('last_modified_by' in data) || (data.last_modified_by is string && data.last_modified_by.size() <= 200)) &&
+        (!('last_modified_by_email' in data) || (data.last_modified_by_email is string && data.last_modified_by_email.size() <= 200));
     }
 
     function isValidShipment(data) {
       return data.keys().hasAll(['tracking_id', 'container_id', 'shipping_mark', 'phone_number', 'ctn', 'cbm', 'status', 'created_at', 'updated_at']) &&
-        data.keys().hasOnly(['tracking_id', 'client_id', 'container_id', 'shipping_mark', 'phone_number', 'ctn', 'cbm', 'freight_usd_per_cbm', 'clearing_naira_per_cbm', 'status', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly([
+          'tracking_id', 'client_id', 'container_id', 'shipping_mark', 'phone_number',
+          'ctn', 'cbm', 'freight_usd_per_cbm', 'clearing_naira_per_cbm',
+          'status', 'created_at', 'updated_at',
+          'last_modified_by', 'last_modified_by_email', 'last_modified_by_role', 'last_modified_action'
+        ]) &&
         data.tracking_id is string && data.tracking_id.size() > 0 && data.tracking_id.size() <= 64 &&
         data.container_id is string && data.container_id.size() > 0 && data.container_id.size() <= 64 &&
         data.shipping_mark is string && data.shipping_mark.size() > 0 && data.shipping_mark.size() <= 128 &&
@@ -57,6 +84,10 @@ service cloud.firestore {
         (!('client_id' in data) || (data.client_id is string && data.client_id.size() <= 128)) &&
         (!('freight_usd_per_cbm' in data) || (data.freight_usd_per_cbm is number && data.freight_usd_per_cbm >= 0)) &&
         (!('clearing_naira_per_cbm' in data) || (data.clearing_naira_per_cbm is number && data.clearing_naira_per_cbm >= 0)) &&
+        (!('last_modified_by' in data) || (data.last_modified_by is string && data.last_modified_by.size() <= 200)) &&
+        (!('last_modified_by_email' in data) || (data.last_modified_by_email is string && data.last_modified_by_email.size() <= 200)) &&
+        (!('last_modified_by_role' in data) || (data.last_modified_by_role is string && data.last_modified_by_role.size() <= 64)) &&
+        (!('last_modified_action' in data) || (data.last_modified_action is string && data.last_modified_action.size() <= 250)) &&
         data.status in [
           'received_china', 'shipped', 'in_transit_sea', 'in_transit_air',
           'arrived_lagos', 'customs_clearing', 'cleared', 'ready_for_pickup',
@@ -68,7 +99,7 @@ service cloud.firestore {
 
     function isValidTrackingUpdate(data) {
       return data.keys().hasAll(['shipment_id', 'status', 'note', 'created_at']) &&
-        data.keys().hasOnly(['shipment_id', 'status', 'note', 'created_at']) &&
+        data.keys().hasOnly(['shipment_id', 'status', 'note', 'created_at', 'modified_by', 'modified_by_email']) &&
         data.shipment_id is string && data.shipment_id.size() > 0 && data.shipment_id.size() <= 128 &&
         data.status in [
           'received_china', 'shipped', 'in_transit_sea', 'in_transit_air',
@@ -76,39 +107,55 @@ service cloud.firestore {
           'out_for_delivery', 'delivered'
         ] &&
         data.note is string && data.note.size() <= 500 &&
+        (!('modified_by' in data) || (data.modified_by is string && data.modified_by.size() <= 200)) &&
+        (!('modified_by_email' in data) || (data.modified_by_email is string && data.modified_by_email.size() <= 200)) &&
         data.created_at is number;
     }
 
     function isValidSettings(data) {
       return data.keys().hasAll(['exchangeRateUsdNgn', 'seaFreightRateUsd', 'seaClearingRateNgn', 'airFreightRateUsd', 'airClearingRateNgn']) &&
-        data.keys().hasOnly(['exchangeRateUsdNgn', 'seaFreightRateUsd', 'seaClearingRateNgn', 'airFreightRateUsd', 'airClearingRateNgn']) &&
+        data.keys().hasOnly([
+          'exchangeRateUsdNgn', 'seaFreightRateUsd', 'seaClearingRateNgn',
+          'airFreightRateUsd', 'airClearingRateNgn',
+          'updated_at', 'last_modified_by', 'last_modified_by_email'
+        ]) &&
         data.exchangeRateUsdNgn is number && data.exchangeRateUsdNgn >= 0 &&
         data.seaFreightRateUsd is number && data.seaFreightRateUsd >= 0 &&
         data.seaClearingRateNgn is number && data.seaClearingRateNgn >= 0 &&
         data.airFreightRateUsd is number && data.airFreightRateUsd >= 0 &&
-        data.airClearingRateNgn is number && data.airClearingRateNgn >= 0;
+        data.airClearingRateNgn is number && data.airClearingRateNgn >= 0 &&
+        (!('updated_at' in data) || data.updated_at is number) &&
+        (!('last_modified_by' in data) || (data.last_modified_by is string && data.last_modified_by.size() <= 200)) &&
+        (!('last_modified_by_email' in data) || (data.last_modified_by_email is string && data.last_modified_by_email.size() <= 200));
     }
 
     match /users/{userId} {
       allow get: if isValidId(userId) && isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
-      allow create: if isValidId(userId) && isAuthenticated() && request.auth.uid == userId && isValidUser(incoming()) && (
-        isAdmin() || incoming().role == 'client'
-      );
-      allow update: if isValidId(userId) && isAuthenticated() && isValidUser(incoming()) && (
-        isAdmin() || (
-          request.auth.uid == userId &&
-          incoming().role == existing().role &&
-          incoming().is_verified == existing().is_verified
+      allow create: if isValidId(userId) && isAuthenticated() && isValidUser(incoming()) && (
+        isSuperAdmin() || (
+          request.auth.uid == userId && (
+            isBootstrappedSuperAdmin() || incoming().role in ['client', 'admin']
+          )
         )
       );
-      allow delete: if isValidId(userId) && isAdmin();
+      allow update: if isValidId(userId) && isAuthenticated() && isValidUser(incoming()) && (
+        isSuperAdmin() || (
+          request.auth.uid == userId &&
+          incoming().role == existing().role &&
+          incoming().is_verified == existing().is_verified &&
+          (!('account_status' in existing()) || incoming().account_status == existing().account_status)
+        )
+      );
+      // Only Super Admin can delete accounts
+      allow delete: if isValidId(userId) && isSuperAdmin();
     }
 
     match /containers/{containerId} {
       allow get: if isValidId(containerId) && isAdmin();
       allow list: if isAdmin();
-      allow create, update, delete: if isValidId(containerId) && isAdmin();
+      allow create, update: if isValidId(containerId) && isAdmin();
+      allow delete: if isValidId(containerId) && isSuperAdmin();
     }
 
     match /shipments/{shipmentId} {
@@ -118,14 +165,15 @@ service cloud.firestore {
       allow create: if isValidId(shipmentId) && isAdmin() && isValidShipment(incoming());
       allow update: if isValidId(shipmentId) && isAdmin() && isValidShipment(incoming()) &&
         incoming().created_at == existing().created_at;
-      allow delete: if isValidId(shipmentId) && isAdmin();
+      // Base Admin cannot delete any shipment record; only Super Admin can delete
+      allow delete: if isValidId(shipmentId) && isSuperAdmin();
     }
 
     match /settings/{docId} {
       allow get: if isValidId(docId);
       allow list: if true;
       allow create, update: if isValidId(docId) && isAdmin() && isValidSettings(incoming());
-      allow delete: if isValidId(docId) && isAdmin();
+      allow delete: if isValidId(docId) && isSuperAdmin();
     }
 
     match /tracking_updates/{updateId} {
@@ -133,7 +181,7 @@ service cloud.firestore {
       allow list: if true;
       allow create: if isValidId(updateId) && isAdmin() && isValidTrackingUpdate(incoming());
       allow update: if isValidId(updateId) && isAdmin() && isValidTrackingUpdate(incoming());
-      allow delete: if isValidId(updateId) && isAdmin();
+      allow delete: if isValidId(updateId) && isSuperAdmin();
     }
   }
 }

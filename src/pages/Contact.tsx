@@ -64,10 +64,10 @@ export default function Contact() {
               Sign in
             </Link>
             <Link
-              to="/login"
+              to="/login?mode=signup"
               className="pill-btn-minimal bg-[#0A54E1] text-white px-[22px] py-[11px] rounded-full font-medium"
             >
-              Create account
+              Client sign up
             </Link>
           </nav>
 
@@ -144,11 +144,11 @@ export default function Contact() {
                 Sign in
               </Link>
               <Link
-                to="/login"
+                to="/login?mode=signup"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-3 px-5 rounded-full bg-[#0A54E1] text-white text-center font-semibold"
               >
-                Create account
+                Client sign up
               </Link>
             </div>
           </nav>
