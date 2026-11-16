@@ -1,8 +1,11 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import {
   getAuth,
   initializeAuth,
+  inMemoryPersistence,
+  createUserWithEmailAndPassword,
+  signOut,
   browserLocalPersistence,
   browserSessionPersistence,
   indexedDBLocalPersistence,
@@ -30,6 +33,24 @@ export const auth = (() => {
     return getAuth(app);
   }
 })();
+
+export async function createSecondaryAuthUser(email: string, password: string): Promise<string> {
+  const secondaryAppName = 'SecondaryAccountCreator';
+  const existingApp = getApps().find((a) => a.name === secondaryAppName);
+  const secondaryApp = existingApp || initializeApp(config, secondaryAppName);
+  const secondaryAuth = (() => {
+    try {
+      return initializeAuth(secondaryApp, { persistence: inMemoryPersistence });
+    } catch {
+      return getAuth(secondaryApp);
+    }
+  })();
+
+  const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+  const uid = cred.user.uid;
+  await signOut(secondaryAuth);
+  return uid;
+}
 
 export enum OperationType {
   CREATE = 'create',

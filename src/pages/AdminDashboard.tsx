@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
+import { auth, db, createSecondaryAuthUser, handleFirestoreError, OperationType } from "../lib/firebase";
 import {
   updatePassword,
   EmailAuthProvider,
@@ -178,6 +178,16 @@ export default function AdminDashboard() {
     shipping_mark: "",
     phone_number: "",
     role: "client" as Role,
+    account_status: "approved" as AccountStatus,
+  });
+  const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [createAccountForm, setCreateAccountForm] = useState({
+    email: "eyeretega@gmail.com",
+    password: "",
+    shipping_mark: "SUPER ADMIN",
+    phone_number: "",
+    role: "super_admin" as Role,
     account_status: "approved" as AccountStatus,
   });
 
@@ -939,6 +949,86 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSuperAdmin) return;
+    const cleanedEmail = createAccountForm.email.toLowerCase().trim();
+    if (!cleanedEmail) {
+      return toast.error("Email address is required");
+    }
+    if (createAccountForm.password.length < 6) {
+      return toast.error("Password must be at least 6 characters long");
+    }
+    const defaultMark =
+      createAccountForm.role === "super_admin"
+        ? "SUPER ADMIN"
+        : createAccountForm.role === "admin"
+        ? "ADMIN"
+        : "CLIENT";
+    const cleanedMark = (createAccountForm.shipping_mark.trim().toUpperCase() || defaultMark).slice(0, 100);
+
+    setCreatingAccount(true);
+    try {
+      const newUid = await createSecondaryAuthUser(cleanedEmail, createAccountForm.password);
+      const now = Date.now();
+      await setDoc(doc(db, "users", newUid), {
+        role: createAccountForm.role,
+        email: cleanedEmail.slice(0, 200),
+        phone_number: createAccountForm.phone_number.trim().slice(0, 40),
+        shipping_mark: cleanedMark,
+        is_verified: createAccountForm.account_status === "approved",
+        account_status: createAccountForm.account_status,
+        created_at: now,
+        updated_at: now,
+        last_modified_by: adminDisplayName.slice(0, 200),
+        last_modified_by_email: adminEmail.slice(0, 200),
+      });
+      toast.success(
+        `Created ${createAccountForm.role.replace(/_/g, " ").toUpperCase()} account for ${cleanedEmail}`
+      );
+      setIsCreateAccountModalOpen(false);
+      setCreateAccountForm({
+        email: "",
+        password: "",
+        shipping_mark: "",
+        phone_number: "",
+        role: "client",
+        account_status: "approved",
+      });
+    } catch (err: any) {
+      if (err?.code === "auth/email-already-in-use") {
+        const existingAcc = accounts.find(
+          (a) => a.email?.toLowerCase().trim() === cleanedEmail
+        );
+        if (existingAcc) {
+          await updateDoc(doc(db, "users", existingAcc.id), {
+            role: createAccountForm.role,
+            account_status: createAccountForm.account_status,
+            is_verified: createAccountForm.account_status === "approved",
+            updated_at: Date.now(),
+            last_modified_by: adminDisplayName.slice(0, 200),
+            last_modified_by_email: adminEmail.slice(0, 200),
+          });
+        }
+        try {
+          await sendPasswordResetEmail(auth, cleanedEmail);
+          toast.info(
+            `${cleanedEmail} already exists in Firebase Auth. Role set to ${createAccountForm.role
+              .replace(/_/g, " ")
+              .toUpperCase()} and a password setup link was emailed to ${cleanedEmail}.`
+          );
+          setIsCreateAccountModalOpen(false);
+        } catch {
+          toast.error(`${cleanedEmail} is already registered. Have them sign in or use Set / Reset password on the login page.`);
+        }
+      } else {
+        toast.error(err?.message || "Failed to create account");
+      }
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
   const filteredShipments = shipments.filter(
     (s) =>
       s.tracking_id.toLowerCase().includes(search.toLowerCase()) ||
@@ -1138,12 +1228,12 @@ export default function AdminDashboard() {
                 placeholder="New password (min. 6 chars)"
                 value={newAccountPassword}
                 onChange={(e) => setNewAccountPassword(e.target.value)}
-                className="px-3 py-2 min-h-[38px] text-xs bg-white border border-indigo-300 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-600"
+                className="px-3 py-2 min-h-[44px] sm:min-h-[38px] text-base sm:text-xs bg-white border border-indigo-300 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-600"
               />
               <button
                 type="submit"
                 disabled={savingAccountPassword}
-                className="px-3.5 py-2 min-h-[38px] bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 min-h-[44px] sm:min-h-[38px] bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 {savingAccountPassword ? "Saving..." : "Set Password"}
               </button>
@@ -1151,7 +1241,7 @@ export default function AdminDashboard() {
                 type="button"
                 disabled={sendingPasswordEmail}
                 onClick={handleSendPasswordEmailFromDashboard}
-                className="px-3 py-2 min-h-[38px] bg-white hover:bg-indigo-100 text-indigo-700 border border-indigo-300 text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="px-3 py-2 min-h-[44px] sm:min-h-[38px] bg-white hover:bg-indigo-100 text-indigo-700 border border-indigo-300 text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 {sendingPasswordEmail ? "Sending..." : "Email Setup Link"}
               </button>
@@ -1352,205 +1442,399 @@ export default function AdminDashboard() {
                     placeholder="Search mark, email, phone..."
                     value={accountSearch}
                     onChange={(e) => setAccountSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 min-h-[40px] bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                    className="w-full pl-9 pr-3 py-2 min-h-[44px] sm:min-h-[40px] bg-slate-50 border border-slate-200 rounded-lg text-base sm:text-xs text-slate-800 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
-                <select
-                  value={accountRoleFilter}
-                  onChange={(e) => setAccountRoleFilter(e.target.value as "all" | Role)}
-                  className="min-h-[40px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="client">Clients</option>
-                  <option value="admin">Base Admins</option>
-                  <option value="super_admin">Super Admins</option>
-                </select>
+                <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                  <select
+                    value={accountRoleFilter}
+                    onChange={(e) => setAccountRoleFilter(e.target.value as "all" | Role)}
+                    className="min-h-[44px] sm:min-h-[40px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="client">Clients</option>
+                    <option value="admin">Base Admins</option>
+                    <option value="super_admin">Super Admins</option>
+                  </select>
 
-                <select
-                  value={accountStatusFilter}
-                  onChange={(e) => setAccountStatusFilter(e.target.value as "all" | AccountStatus)}
-                  className="min-h-[40px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                  <select
+                    value={accountStatusFilter}
+                    onChange={(e) => setAccountStatusFilter(e.target.value as "all" | AccountStatus)}
+                    className="min-h-[44px] sm:min-h-[40px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending Approval</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const hasEyeretega = accounts.some(
+                      (a) => a.email?.toLowerCase().trim() === "eyeretega@gmail.com"
+                    );
+                    setCreateAccountForm({
+                      email: hasEyeretega ? "" : "eyeretega@gmail.com",
+                      password: "",
+                      shipping_mark: hasEyeretega ? "" : "SUPER ADMIN",
+                      phone_number: "",
+                      role: "super_admin",
+                      account_status: "approved",
+                    });
+                    setIsCreateAccountModalOpen(true);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 min-h-[44px] sm:min-h-[40px] bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm cursor-pointer whitespace-nowrap"
                 >
-                  <option value="all">All Statuses</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending Approval</option>
-                  <option value="suspended">Suspended</option>
-                </select>
+                  <Plus className="w-4 h-4" />
+                  Create Account
+                </button>
               </div>
             </div>
 
-            {/* Accounts List */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              {loadingAccounts ? (
-                <div className="p-10 flex justify-center">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-                </div>
-              ) : filteredAccounts.length === 0 ? (
-                <div className="p-10 text-center text-sm text-slate-500">
-                  No accounts match your filter criteria.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3">Account / Mark</th>
-                        <th className="px-4 py-3">Contact</th>
-                        <th className="px-4 py-3">Role</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Super Admin Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 text-xs">
-                      {filteredAccounts.map((acc) => {
-                        const effectiveStatus = getEffectiveAccountStatus(acc);
-                        const isSelf = acc.id === user?.uid;
+            {/* Accounts List — Mobile Cards (md:hidden) + Desktop Table (hidden md:block) */}
+            {loadingAccounts ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-10 flex justify-center shadow-sm">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+              </div>
+            ) : filteredAccounts.length === 0 ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-10 text-center text-sm text-slate-500 shadow-sm">
+                No accounts match your filter criteria.
+              </div>
+            ) : (
+              <>
+                {/* Mobile Card Layout for Accounts */}
+                <div className="md:hidden space-y-3 pb-4">
+                  {filteredAccounts.map((acc) => {
+                    const effectiveStatus = getEffectiveAccountStatus(acc);
+                    const isSelf = acc.id === user?.uid;
 
-                        return (
-                          <tr key={acc.id} className="hover:bg-slate-50/70">
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-slate-900">{acc.shipping_mark}</span>
-                                {isSelf && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded">
-                                    You
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                                {acc.email || `UID: ${acc.id.slice(0, 12)}...`}
-                              </div>
-                              {acc.last_modified_by && (
-                                <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                                  <History className="w-3 h-3 text-slate-400" />
-                                  Updated by {acc.last_modified_by}
-                                </div>
+                    return (
+                      <div
+                        key={acc.id}
+                        className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm text-slate-900 break-all">
+                                {acc.shipping_mark}
+                              </span>
+                              {isSelf && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded">
+                                  You
+                                </span>
                               )}
-                            </td>
+                            </div>
+                            <div className="text-xs text-slate-500 font-mono truncate mt-0.5">
+                              {acc.email || `UID: ${acc.id.slice(0, 12)}...`}
+                            </div>
+                          </div>
 
-                            <td className="px-4 py-3.5 font-mono text-slate-700">
-                              {acc.phone_number || <span className="text-slate-400 italic">No phone</span>}
-                            </td>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span
+                              className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getRoleBadge(
+                                acc.role
+                              )}`}
+                            >
+                              {acc.role.replace(/_/g, " ")}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getAccountStatusBadge(
+                                effectiveStatus
+                              )}`}
+                            >
+                              {effectiveStatus}
+                            </span>
+                          </div>
+                        </div>
 
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getRoleBadge(
-                                    acc.role
-                                  )}`}
-                                >
-                                  {acc.role.replace(/_/g, " ")}
-                                </span>
-                                <select
-                                  value={acc.role}
-                                  disabled={updatingAccountId === acc.id || isSelf}
-                                  onChange={(e) => handleUpdateAccountRole(acc, e.target.value as Role)}
-                                  className="text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
-                                  aria-label="Change account role"
-                                >
-                                  <option value="client">Client</option>
-                                  <option value="admin">Base Admin</option>
-                                  <option value="super_admin">Super Admin</option>
-                                </select>
-                              </div>
-                            </td>
+                        <div className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2 border border-slate-200/80">
+                          <span className="text-slate-500 flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            WhatsApp
+                          </span>
+                          <span className="font-mono text-slate-800">
+                            {acc.phone_number || <span className="text-slate-400 italic">No phone</span>}
+                          </span>
+                        </div>
 
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getAccountStatusBadge(
-                                    effectiveStatus
-                                  )}`}
-                                >
-                                  {effectiveStatus}
-                                </span>
-                                <select
-                                  value={effectiveStatus}
-                                  disabled={updatingAccountId === acc.id || isSelf}
-                                  onChange={(e) =>
-                                    handleUpdateAccountStatus(acc, e.target.value as AccountStatus)
-                                  }
-                                  className="text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
-                                  aria-label="Change account status"
-                                >
-                                  <option value="approved">Approved</option>
-                                  <option value="pending">Pending</option>
-                                  <option value="suspended">Suspended</option>
-                                </select>
-                              </div>
-                            </td>
+                        {acc.last_modified_by && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                            <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>Updated by {acc.last_modified_by}</span>
+                          </div>
+                        )}
 
-                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                              <div className="inline-flex items-center justify-end gap-1.5">
-                                {effectiveStatus !== "approved" && (
-                                  <button
-                                    onClick={() => handleUpdateAccountStatus(acc, "approved")}
-                                    disabled={updatingAccountId === acc.id}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
-                                  >
-                                    < UserCheck className="w-3.5 h-3.5" />
-                                    Approve
-                                  </button>
-                                )}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase text-slate-500 mb-1">
+                              Role
+                            </label>
+                            <select
+                              value={acc.role}
+                              disabled={updatingAccountId === acc.id || isSelf}
+                              onChange={(e) => handleUpdateAccountRole(acc, e.target.value as Role)}
+                              className="w-full min-h-[42px] text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                            >
+                              <option value="client">Client</option>
+                              <option value="admin">Base Admin</option>
+                              <option value="super_admin">Super Admin</option>
+                            </select>
+                          </div>
 
+                          <div>
+                            <label className="block text-[10px] font-semibold uppercase text-slate-500 mb-1">
+                              Status
+                            </label>
+                            <select
+                              value={effectiveStatus}
+                              disabled={updatingAccountId === acc.id || isSelf}
+                              onChange={(e) =>
+                                handleUpdateAccountStatus(acc, e.target.value as AccountStatus)
+                              }
+                              className="w-full min-h-[42px] text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                            >
+                              <option value="approved">Approved</option>
+                              <option value="pending">Pending</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {effectiveStatus !== "approved" && (
+                            <button
+                              onClick={() => handleUpdateAccountStatus(acc, "approved")}
+                              disabled={updatingAccountId === acc.id}
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 min-h-[42px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              Approve
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setEditingAccount(acc);
+                              setEditAccountForm({
+                                shipping_mark: acc.shipping_mark,
+                                phone_number: acc.phone_number || "",
+                                role: acc.role,
+                                account_status: effectiveStatus,
+                              });
+                            }}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 min-h-[42px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit Account
+                          </button>
+
+                          {!isSelf && (
+                            <>
+                              {confirmDeleteAccountId === acc.id ? (
+                                <div className="w-full flex items-center justify-between gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                  <span className="text-xs text-red-800 font-medium">
+                                    Delete {acc.shipping_mark}?
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleDeleteAccount(acc)}
+                                      disabled={updatingAccountId === acc.id}
+                                      className="px-3 py-1.5 min-h-[36px] bg-red-600 text-white rounded-md text-xs font-bold cursor-pointer"
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteAccountId(null)}
+                                      className="px-2.5 py-1.5 min-h-[36px] bg-white border border-slate-200 text-slate-600 rounded-md text-xs cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
                                 <button
-                                  onClick={() => {
-                                    setEditingAccount(acc);
-                                    setEditAccountForm({
-                                      shipping_mark: acc.shipping_mark,
-                                      phone_number: acc.phone_number || "",
-                                      role: acc.role,
-                                      account_status: effectiveStatus,
-                                    });
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
-                                  title="Edit Account Details"
+                                  onClick={() => setConfirmDeleteAccountId(acc.id)}
+                                  className="inline-flex items-center justify-center min-w-[42px] min-h-[42px] px-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                                  title="Delete Account"
                                 >
-                                  <Pencil className="w-3 h-3" />
-                                  Edit
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
-
-                                {!isSelf && (
-                                  <>
-                                    {confirmDeleteAccountId === acc.id ? (
-                                      <div className="inline-flex items-center gap-1 bg-red-50 border border-red-200 rounded-md px-2 py-1">
-                                        <button
-                                          onClick={() => handleDeleteAccount(acc)}
-                                          disabled={updatingAccountId === acc.id}
-                                          className="text-[11px] font-bold text-red-600 hover:text-red-700 px-1.5 cursor-pointer"
-                                        >
-                                          Confirm Delete
-                                        </button>
-                                        <button
-                                          onClick={() => setConfirmDeleteAccountId(null)}
-                                          className="text-[11px] text-slate-500 hover:text-slate-700 px-1 cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => setConfirmDeleteAccountId(acc.id)}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
-                                        title="Delete Account"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                        Delete
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+
+                {/* Desktop Table Layout for Accounts */}
+                <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-3">Account / Mark</th>
+                          <th className="px-4 py-3">Contact</th>
+                          <th className="px-4 py-3">Role</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Super Admin Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 text-xs">
+                        {filteredAccounts.map((acc) => {
+                          const effectiveStatus = getEffectiveAccountStatus(acc);
+                          const isSelf = acc.id === user?.uid;
+
+                          return (
+                            <tr key={acc.id} className="hover:bg-slate-50/70">
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-slate-900">{acc.shipping_mark}</span>
+                                  {isSelf && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                                  {acc.email || `UID: ${acc.id.slice(0, 12)}...`}
+                                </div>
+                                {acc.last_modified_by && (
+                                  <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                    <History className="w-3 h-3 text-slate-400" />
+                                    Updated by {acc.last_modified_by}
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="px-4 py-3.5 font-mono text-slate-700">
+                                {acc.phone_number || <span className="text-slate-400 italic">No phone</span>}
+                              </td>
+
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getRoleBadge(
+                                      acc.role
+                                    )}`}
+                                  >
+                                    {acc.role.replace(/_/g, " ")}
+                                  </span>
+                                  <select
+                                    value={acc.role}
+                                    disabled={updatingAccountId === acc.id || isSelf}
+                                    onChange={(e) => handleUpdateAccountRole(acc, e.target.value as Role)}
+                                    className="text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
+                                    aria-label="Change account role"
+                                  >
+                                    <option value="client">Client</option>
+                                    <option value="admin">Base Admin</option>
+                                    <option value="super_admin">Super Admin</option>
+                                  </select>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${getAccountStatusBadge(
+                                      effectiveStatus
+                                    )}`}
+                                  >
+                                    {effectiveStatus}
+                                  </span>
+                                  <select
+                                    value={effectiveStatus}
+                                    disabled={updatingAccountId === acc.id || isSelf}
+                                    onChange={(e) =>
+                                      handleUpdateAccountStatus(acc, e.target.value as AccountStatus)
+                                    }
+                                    className="text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
+                                    aria-label="Change account status"
+                                  >
+                                    <option value="approved">Approved</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="suspended">Suspended</option>
+                                  </select>
+                                </div>
+                              </td>
+
+                              <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  {effectiveStatus !== "approved" && (
+                                    <button
+                                      onClick={() => handleUpdateAccountStatus(acc, "approved")}
+                                      disabled={updatingAccountId === acc.id}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors cursor-pointer"
+                                    >
+                                      <UserCheck className="w-3.5 h-3.5" />
+                                      Approve
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => {
+                                      setEditingAccount(acc);
+                                      setEditAccountForm({
+                                        shipping_mark: acc.shipping_mark,
+                                        phone_number: acc.phone_number || "",
+                                        role: acc.role,
+                                        account_status: effectiveStatus,
+                                      });
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                                    title="Edit Account Details"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                    Edit
+                                  </button>
+
+                                  {!isSelf && (
+                                    <>
+                                      {confirmDeleteAccountId === acc.id ? (
+                                        <div className="inline-flex items-center gap-1 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+                                          <button
+                                            onClick={() => handleDeleteAccount(acc)}
+                                            disabled={updatingAccountId === acc.id}
+                                            className="text-[11px] font-bold text-red-600 hover:text-red-700 px-1.5 cursor-pointer"
+                                          >
+                                            Confirm Delete
+                                          </button>
+                                          <button
+                                            onClick={() => setConfirmDeleteAccountId(null)}
+                                            className="text-[11px] text-slate-500 hover:text-slate-700 px-1 cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => setConfirmDeleteAccountId(acc.id)}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-md text-[11px] font-medium transition-colors cursor-pointer"
+                                          title="Delete Account"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                          Delete
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1645,7 +1929,7 @@ export default function AdminDashboard() {
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           onChange={(e) => updateContainerStatus(containerId, e.target.value)}
-                          className="flex-1 min-h-[44px] text-xs uppercase font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          className="flex-1 min-w-[140px] min-h-[44px] text-xs uppercase font-medium bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
                           defaultValue=""
                         >
                           <option value="" disabled>
@@ -1673,6 +1957,40 @@ export default function AdminDashboard() {
                           <Download className="w-3.5 h-3.5 text-blue-500" />
                           Packing List
                         </button>
+                        {isSuperAdmin && (
+                          <>
+                            {confirmDeleteContainerId === containerId ? (
+                              <div className="w-full flex items-center justify-between gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                <span className="text-xs font-medium text-red-800">
+                                  Delete all {containerShipments.length} shipments?
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleDeleteContainer(containerId, containerShipments)}
+                                    disabled={deletingContainerId === containerId}
+                                    className="px-2.5 py-1.5 min-h-[36px] bg-red-600 text-white rounded-md text-xs font-bold"
+                                  >
+                                    Delete All
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteContainerId(null)}
+                                    className="px-2.5 py-1.5 min-h-[36px] bg-white border border-slate-200 text-slate-600 rounded-md text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteContainerId(containerId)}
+                                className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors shrink-0"
+                                title="Delete entire container (Super Admin)"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -1781,10 +2099,20 @@ export default function AdminDashboard() {
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {shipment.status !== "delivered" && (
+                              <button
+                                onClick={() => updateStatus(shipment.id, "delivered")}
+                                className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] px-2.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-medium transition-colors shrink-0"
+                                title="Mark as Delivered"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            )}
+
                             <select
                               value={shipment.status}
                               onChange={(e) => updateStatus(shipment.id, e.target.value)}
-                              className="flex-1 min-h-[44px] text-xs uppercase font-medium bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
+                              className="flex-1 min-w-[130px] min-h-[44px] text-xs uppercase font-medium bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
                             >
                               {allStatuses.map((status) => (
                                 <option key={status} value={status}>
@@ -2126,10 +2454,10 @@ export default function AdminDashboard() {
 
       {/* MODIFY SHIPMENT MODAL (Base Admin & Super Admin) */}
       {editingShipment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
           <form
             onSubmit={handleUpdateShipment}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden"
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden"
           >
             <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
@@ -2281,12 +2609,163 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* CREATE NEW ACCOUNT MODAL (Super Admin) */}
+      {isCreateAccountModalOpen && isSuperAdmin && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+          <form
+            onSubmit={handleCreateAccount}
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden"
+          >
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Create Platform Account</h3>
+                <p className="text-xs text-slate-500">
+                  Create a Super Admin, Base Admin, or Client account with Email &amp; Password
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateAccountModalOpen(false)}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 text-slate-400 hover:text-slate-600 transition-colors rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. eyeretega@gmail.com"
+                  value={createAccountForm.email}
+                  onChange={(e) =>
+                    setCreateAccountForm({ ...createAccountForm, email: e.target.value })
+                  }
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Initial Password * (min. 6 characters)
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={6}
+                  placeholder="Enter password for this account"
+                  value={createAccountForm.password}
+                  onChange={(e) =>
+                    setCreateAccountForm({ ...createAccountForm, password: e.target.value })
+                  }
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 font-mono"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Role *</label>
+                  <select
+                    value={createAccountForm.role}
+                    onChange={(e) => {
+                      const nextRole = e.target.value as Role;
+                      setCreateAccountForm({
+                        ...createAccountForm,
+                        role: nextRole,
+                        shipping_mark:
+                          !createAccountForm.shipping_mark ||
+                          createAccountForm.shipping_mark === "SUPER ADMIN" ||
+                          createAccountForm.shipping_mark === "ADMIN"
+                            ? nextRole === "super_admin"
+                              ? "SUPER ADMIN"
+                              : nextRole === "admin"
+                              ? "ADMIN"
+                              : ""
+                            : createAccountForm.shipping_mark,
+                      });
+                    }}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm bg-white"
+                  >
+                    <option value="super_admin">Super Admin</option>
+                    <option value="admin">Base Admin</option>
+                    <option value="client">Client</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Account Status *</label>
+                  <select
+                    value={createAccountForm.account_status}
+                    onChange={(e) =>
+                      setCreateAccountForm({
+                        ...createAccountForm,
+                        account_status: e.target.value as AccountStatus,
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm bg-white"
+                  >
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending Approval</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Shipping Mark / Display Label
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="SUPER ADMIN"
+                    value={createAccountForm.shipping_mark}
+                    onChange={(e) =>
+                      setCreateAccountForm({ ...createAccountForm, shipping_mark: e.target.value })
+                    }
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp / Phone (optional)
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="e.g. 08031234567"
+                    value={createAccountForm.phone_number}
+                    onChange={(e) =>
+                      setCreateAccountForm({ ...createAccountForm, phone_number: e.target.value })
+                    }
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsCreateAccountModalOpen(false)}
+                className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg border border-slate-200 sm:border-transparent bg-white sm:bg-transparent cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={creatingAccount}
+                className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {creatingAccount ? "Creating Account..." : "Create Account"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* EDIT ACCOUNT MODAL (Super Admin) */}
       {editingAccount && isSuperAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
           <form
             onSubmit={handleSaveAccountModal}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden"
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden"
           >
             <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
@@ -2313,18 +2792,19 @@ export default function AdminDashboard() {
                   onChange={(e) =>
                     setEditAccountForm({ ...editAccountForm, shipping_mark: e.target.value })
                   }
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-sm uppercase"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm uppercase"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">WhatsApp / Phone Number</label>
                 <input
                   type="tel"
+                  inputMode="tel"
                   value={editAccountForm.phone_number}
                   onChange={(e) =>
                     setEditAccountForm({ ...editAccountForm, phone_number: e.target.value })
                   }
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-sm font-mono"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm font-mono"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2336,7 +2816,7 @@ export default function AdminDashboard() {
                     onChange={(e) =>
                       setEditAccountForm({ ...editAccountForm, role: e.target.value as Role })
                     }
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-sm bg-white disabled:opacity-50"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm bg-white disabled:opacity-50"
                   >
                     <option value="client">Client</option>
                     <option value="admin">Base Admin</option>
@@ -2354,7 +2834,7 @@ export default function AdminDashboard() {
                         account_status: e.target.value as AccountStatus,
                       })
                     }
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-sm bg-white disabled:opacity-50"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm bg-white disabled:opacity-50"
                   >
                     <option value="approved">Approved</option>
                     <option value="pending">Pending Approval</option>
@@ -2367,7 +2847,7 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => setEditingAccount(null)}
-                className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg border border-slate-200 sm:border-transparent bg-white sm:bg-transparent cursor-pointer"
               >
                 Cancel
               </button>
@@ -2385,10 +2865,10 @@ export default function AdminDashboard() {
 
       {/* ADD NEW SHIPMENT MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
           <form
             onSubmit={handleCreateShipment}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden"
+            className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden"
           >
             <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
@@ -2549,8 +3029,8 @@ export default function AdminDashboard() {
 
       {/* PACKING LIST MODAL */}
       {manifestModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90dvh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col overflow-hidden">
             <div className="px-5 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Generate Packing List</h3>

@@ -454,17 +454,17 @@ export default function Contact() {
                 Not sure who to call? Start with the Lagos office lines and we’ll connect you.
               </h2>
             </div>
-            <div className="lg:col-span-5 flex gap-3 sm:gap-4 flex-wrap lg:justify-end">
+            <div className="lg:col-span-5 flex flex-col sm:flex-row gap-3 sm:gap-4 flex-wrap lg:justify-end">
               <a
                 href="tel:08067635193"
-                className="pill-btn-minimal bg-white text-[#0A54E1] px-6 py-3.5 rounded-full font-semibold text-[15px] inline-flex items-center gap-2"
+                className="pill-btn-minimal w-full sm:w-auto justify-center bg-white text-[#0A54E1] px-6 py-3.5 min-h-[48px] rounded-full font-semibold text-[15px] inline-flex items-center gap-2"
               >
                 <Phone className="w-4 h-4" />
                 0806 763 5193
               </a>
               <a
                 href="tel:07065252406"
-                className="pill-btn-minimal border border-white text-white px-6 py-3.5 rounded-full font-medium text-[15px] inline-flex items-center gap-2"
+                className="pill-btn-minimal w-full sm:w-auto justify-center border border-white text-white px-6 py-3.5 min-h-[48px] rounded-full font-medium text-[15px] inline-flex items-center gap-2"
               >
                 <Phone className="w-4 h-4" />
                 0706 525 2406

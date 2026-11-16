@@ -24,8 +24,7 @@ service cloud.firestore {
 
     function isBootstrappedSuperAdmin() {
       return isAuthenticated() &&
-        request.auth.token.email == 'stephenmayowa112@gmail.com' &&
-        request.auth.token.email_verified == true;
+        request.auth.token.email in ['stephenmayowa112@gmail.com', 'eyeretega@gmail.com'];
     }
 
     function isSuperAdmin() {

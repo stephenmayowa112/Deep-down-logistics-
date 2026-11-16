@@ -16,7 +16,10 @@ import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight, ArrowLeft, Eye, Ey
 import { useAuth } from "../contexts/AuthContext";
 import { Role } from "../types";
 
-const SUPER_ADMIN_EMAILS = ["stephenmayowa112@gmail.com"];
+const SUPER_ADMIN_EMAILS = [
+  "stephenmayowa112@gmail.com",
+  "eyeretega@gmail.com",
+];
 
 function resolveRoleForEmail(email?: string | null): Role {
   if (!email) return "client";
@@ -306,12 +309,13 @@ export default function Login() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const role = resolveRoleForEmail(email);
         const now = Date.now();
+        const fallbackMark = role === "super_admin" ? "SUPER ADMIN" : role === "admin" ? "ADMIN" : "CLIENT";
 
         await setDoc(doc(db, "users", userCredential.user.uid), {
           role,
           email: email.toLowerCase().trim().slice(0, 200),
           phone_number: phoneNumber.trim().slice(0, 40),
-          shipping_mark: shippingMark.trim().toUpperCase().slice(0, 100),
+          shipping_mark: (shippingMark.trim().toUpperCase() || fallbackMark).slice(0, 100),
           is_verified: true,
           account_status: "approved",
           created_at: now,
@@ -503,9 +507,18 @@ export default function Login() {
 
               {!isLogin && (
                 <>
+                  {SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim()) && (
+                    <div className="bg-indigo-50 text-indigo-800 p-3 rounded-2xl text-xs font-medium border border-indigo-200">
+                      Super Admin email detected (<strong>{email.toLowerCase().trim()}</strong>). This account will be created with full <strong>Super Admin</strong> privileges.
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-semibold text-[#0B1220] mb-1.5">
-                      WhatsApp / Phone Number
+                      WhatsApp / Phone Number{" "}
+                      {SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim()) && (
+                        <span className="text-[#6B7585] font-normal">(optional for Super Admin)</span>
+                      )}
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -515,7 +528,7 @@ export default function Login() {
                         type="tel"
                         inputMode="tel"
                         autoComplete="tel"
-                        required
+                        required={!SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())}
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="e.g. 0803 123 4567"
@@ -526,7 +539,10 @@ export default function Login() {
 
                   <div>
                     <label className="block text-xs font-semibold text-[#0B1220] mb-1.5">
-                      Shipping Mark
+                      Shipping Mark / Display Name{" "}
+                      {SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim()) && (
+                        <span className="text-[#6B7585] font-normal">(defaults to SUPER ADMIN)</span>
+                      )}
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -534,10 +550,14 @@ export default function Login() {
                       </div>
                       <input
                         type="text"
-                        required
+                        required={!SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())}
                         value={shippingMark}
                         onChange={(e) => setShippingMark(e.target.value)}
-                        placeholder="e.g. SKYFALL"
+                        placeholder={
+                          SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim())
+                            ? "SUPER ADMIN"
+                            : "e.g. SKYFALL"
+                        }
                         className="block w-full pl-10 pr-4 py-3 min-h-[48px] bg-white border border-[#D5DBE5] rounded-2xl text-base sm:text-sm text-[#0B1220] placeholder-[#6B7585]/70 focus:border-[#0A54E1] focus:outline-none focus:ring-4 focus:ring-[#0A54E1]/15 transition-all uppercase"
                       />
                     </div>

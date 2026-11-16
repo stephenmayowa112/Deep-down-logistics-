@@ -268,7 +268,7 @@ export default function Home() {
           <div className="blob b2" />
           <div className="dots" />
 
-          <h1 className="rise d1 font-bold text-[clamp(36px,7vw,88px)] leading-[1.02] tracking-[-0.035em] mx-auto max-w-[880px]">
+          <h1 className="rise d1 font-bold text-[clamp(28px,7.2vw,88px)] leading-[1.04] tracking-[-0.035em] mx-auto max-w-[880px]">
             <span className="typed">
               <span className="ty a">Guangzhou to Lagos</span>
               <span className="ty b">China to Lagos</span>
@@ -278,13 +278,13 @@ export default function Home() {
             made simple.
           </h1>
 
-          <p className="rise d2 text-[17px] sm:text-[19px] text-[#4B5565] max-w-[600px] mx-auto mt-6 sm:mt-7 mb-8 sm:mb-10 px-2">
+          <p className="rise d2 text-[16px] sm:text-[19px] text-[#4B5565] max-w-[600px] mx-auto mt-5 sm:mt-7 mb-7 sm:mb-10 px-2">
             Groupage shipping and cargo logistics from China to Nigeria. Air, sea and road, with delivery to every state and the FCT.
           </p>
 
           <a
             href="#calculator"
-            className="rise d3 pill-btn-minimal inline-block bg-[#0A54E1] text-white px-10 py-[18px] rounded-full font-semibold text-[14px] tracking-[0.08em]"
+            className="rise d3 pill-btn-minimal inline-flex items-center justify-center w-full sm:w-auto max-w-[280px] sm:max-w-none bg-[#0A54E1] text-white px-10 py-[18px] rounded-full font-semibold text-[14px] tracking-[0.08em]"
           >
             SHIP NOW
           </a>
@@ -669,17 +669,17 @@ export default function Home() {
                 Size up your cargo in seconds with the CBM calculator.
               </p>
             </div>
-            <div className="flex gap-4 flex-wrap lg:justify-end">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-wrap lg:justify-end">
               <button
                 type="button"
                 onClick={() => setCalcOpen(!calcOpen)}
-                className="pill-btn-minimal bg-white text-[#0A54E1] px-8 py-4 rounded-full font-semibold text-[15px] cursor-pointer border-0"
+                className="pill-btn-minimal w-full sm:w-auto text-center bg-white text-[#0A54E1] px-8 py-4 rounded-full font-semibold text-[15px] cursor-pointer border-0"
               >
                 {calcOpen ? 'Hide calculator' : 'Open calculator'}
               </button>
               <Link
                 to="/contact"
-                className="pill-btn-minimal border border-white text-white px-8 py-4 rounded-full font-medium text-[15px]"
+                className="pill-btn-minimal w-full sm:w-auto text-center border border-white text-white px-8 py-4 rounded-full font-medium text-[15px]"
               >
                 Talk to us
               </Link>
@@ -688,7 +688,7 @@ export default function Home() {
 
           {/* Interactive CBM & Air Calculator Panel */}
           {calcOpen && (
-            <div className="mt-6 bg-[#F1F4F9] rounded-[28px] p-6 sm:p-10 border border-[#E3E8F0]">
+            <div className="mt-6 bg-[#F1F4F9] rounded-[24px] sm:rounded-[28px] p-5 sm:p-10 border border-[#E3E8F0]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-[#E3E8F0]">
                 <div>
                   <p className="text-[12px] font-semibold tracking-[0.12em] text-[#0A54E1] uppercase mb-1">
@@ -700,11 +700,11 @@ export default function Home() {
                 </div>
 
                 {/* Mode Switcher */}
-                <div className="inline-flex bg-white p-1.5 rounded-full border border-[#D5DBE5] self-start sm:self-auto">
+                <div className="grid grid-cols-2 sm:inline-flex w-full sm:w-auto bg-white p-1.5 rounded-full border border-[#D5DBE5] self-start sm:self-auto">
                   <button
                     type="button"
                     onClick={() => setCalcMode('sea')}
-                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
+                    className={`px-4 sm:px-5 py-2.5 sm:py-2 min-h-[42px] sm:min-h-0 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                       calcMode === 'sea'
                         ? 'bg-[#0A54E1] text-white'
                         : 'text-[#4B5565] hover:text-[#0B1220]'
@@ -715,7 +715,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setCalcMode('air')}
-                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all cursor-pointer ${
+                    className={`px-4 sm:px-5 py-2.5 sm:py-2 min-h-[42px] sm:min-h-0 rounded-full text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                       calcMode === 'air'
                         ? 'bg-[#0A54E1] text-white'
                         : 'text-[#4B5565] hover:text-[#0B1220]'
@@ -726,15 +726,15 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
                 {/* Inputs Column */}
                 <div className="lg:col-span-7 space-y-5">
-                  <div className="flex items-center gap-3 text-xs font-medium text-[#4B5565]">
-                    <span>Input method:</span>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-medium text-[#4B5565]">
+                    <span className="w-full sm:w-auto font-semibold text-[#0B1220] sm:font-medium sm:text-[#4B5565]">Input method:</span>
                     <button
                       type="button"
                       onClick={() => setInputMode('dimensions')}
-                      className={`px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
+                      className={`flex-1 sm:flex-initial px-3.5 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-full border transition-colors cursor-pointer text-center ${
                         inputMode === 'dimensions'
                           ? 'bg-[#0B1220] text-white border-[#0B1220]'
                           : 'bg-white text-[#4B5565] border-[#D5DBE5]'
@@ -745,7 +745,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setInputMode('direct')}
-                      className={`px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
+                      className={`flex-1 sm:flex-initial px-3.5 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-full border transition-colors cursor-pointer text-center ${
                         inputMode === 'direct'
                           ? 'bg-[#0B1220] text-white border-[#0B1220]'
                           : 'bg-white text-[#4B5565] border-[#D5DBE5]'

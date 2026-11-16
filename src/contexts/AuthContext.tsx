@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { User } from "../types";
 
-const BOOTSTRAPPED_SUPER_ADMIN_EMAIL = "stephenmayowa112@gmail.com";
+export const BOOTSTRAPPED_SUPER_ADMIN_EMAILS = [
+  "stephenmayowa112@gmail.com",
+  "eyeretega@gmail.com",
+];
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -37,9 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const userDocPath = `users/${firebaseUser.uid}`;
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const normalizedEmail = firebaseUser.email?.toLowerCase().trim() || "";
-        const isOwnerSuperAdmin =
-          normalizedEmail === BOOTSTRAPPED_SUPER_ADMIN_EMAIL &&
-          firebaseUser.emailVerified;
+        const isOwnerSuperAdmin = BOOTSTRAPPED_SUPER_ADMIN_EMAILS.includes(normalizedEmail);
 
         unsubscribeDoc = onSnapshot(
           userDocRef,
@@ -70,6 +71,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   ? { role: "super_admin", is_verified: true, account_status: "approved" }
                   : {}),
                 email: data.email || normalizedEmail || undefined,
+              });
+            } else if (isOwnerSuperAdmin) {
+              const now = Date.now();
+              const autoProfile: Omit<User, "id"> = {
+                role: "super_admin",
+                email: normalizedEmail,
+                phone_number: "",
+                shipping_mark: "SUPER ADMIN",
+                is_verified: true,
+                account_status: "approved",
+                created_at: now,
+                updated_at: now,
+              };
+              setDoc(userDocRef, autoProfile).catch((err) =>
+                console.error("Failed to auto-provision super admin profile:", err)
+              );
+              setDbUser({
+                id: firebaseUser.uid,
+                ...autoProfile,
               });
             } else {
               setDbUser(null);
