@@ -7,11 +7,12 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   browserPopupRedirectResolver,
+  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Package, Lock, Mail, Phone, Tag, LogOut, ArrowRight, ArrowLeft, Eye, EyeOff, KeyRound, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Role } from "../types";
 
@@ -39,6 +40,8 @@ export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [shippingMark, setShippingMark] = useState("");
   const [error, setError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
   const [loading, setLoading] = useState(false);
   const popupInFlightRef = useRef(false);
   const navigate = useNavigate();
@@ -239,13 +242,34 @@ export default function Login() {
       case "auth/invalid-credential":
       case "auth/wrong-password":
       case "auth/user-not-found":
-        return "Invalid email or password.";
+        return "Invalid email or password. If this account was originally created with Google Sign-In, click 'Set / Reset password' below to create a password for your email.";
       case "auth/email-already-in-use":
-        return "An account with this email already exists. Switch to Sign in above.";
+        return "An account with this email already exists (for example, created via Google Sign-In). Switch to Sign in and click 'Set / Reset password' to create a password for it.";
       case "auth/weak-password":
         return "Password should be at least 6 characters long.";
       default:
         return err?.message || fallback;
+    }
+  };
+
+  const handleSendPasswordSetup = async (targetEmail?: string) => {
+    const emailToUse = (targetEmail ?? email).trim();
+    setError("");
+    setResetSuccess("");
+    if (!emailToUse) {
+      setError("Please enter your email address (e.g. stephenmayowa112@gmail.com) in the Email field first, then click Set / Reset password.");
+      return;
+    }
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, emailToUse);
+      setResetSuccess(
+        `A password creation / reset link has been sent to ${emailToUse}. Open the link in your email (check Inbox and Spam) to set your password, then sign in below.`
+      );
+    } catch (err: any) {
+      setError(formatAuthError(err, "Could not send password setup email."));
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -271,6 +295,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setResetSuccess("");
     setLoading(true);
 
     try {
@@ -305,6 +330,7 @@ export default function Login() {
   const switchMode = (loginMode: boolean) => {
     setIsLogin(loginMode);
     setError("");
+    setResetSuccess("");
   };
 
   return (
@@ -398,8 +424,8 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Google Sign-In shown only on Sign In mode */}
-            {isLogin && (
+            {/* Google Sign-In UI hidden for now (toggle SHOW_GOOGLE_SIGN_IN to re-enable) */}
+            {false && isLogin && (
               <>
                 <button
                   type="button"
@@ -432,8 +458,26 @@ export default function Login() {
             {/* Email & Password Form */}
             <form className="space-y-4" onSubmit={handleSubmit}>
               {error && (
-                <div className="bg-red-50 text-red-600 p-3.5 rounded-2xl text-xs font-medium border border-red-200 leading-relaxed">
-                  {error}
+                <div className="bg-red-50 text-red-600 p-3.5 rounded-2xl text-xs font-medium border border-red-200 leading-relaxed space-y-2">
+                  <div>{error}</div>
+                  {email.trim() && (
+                    <button
+                      type="button"
+                      disabled={sendingReset}
+                      onClick={() => handleSendPasswordSetup(email)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0A54E1] hover:underline cursor-pointer bg-transparent border-0 p-0"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      {sendingReset ? "Sending link..." : `Send password setup link to ${email.trim()}`}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="bg-emerald-50 text-emerald-800 p-3.5 rounded-2xl text-xs font-medium border border-emerald-200 leading-relaxed flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>{resetSuccess}</div>
                 </div>
               )}
 
@@ -505,9 +549,21 @@ export default function Login() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-[#0B1220] mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-[#0B1220]">
+                    Password
+                  </label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      disabled={sendingReset}
+                      onClick={() => handleSendPasswordSetup()}
+                      className="text-xs font-semibold text-[#0A54E1] hover:underline cursor-pointer bg-transparent border-0 p-0"
+                    >
+                      {sendingReset ? "Sending link..." : "Set / Reset password?"}
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                     <Lock className="w-4 h-4 text-[#6B7585]" />

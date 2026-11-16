@@ -4,6 +4,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import {
+  updatePassword,
+  EmailAuthProvider,
+  linkWithCredential,
+  sendPasswordResetEmail,
+} from "firebase/auth";
+import {
   collection,
   onSnapshot,
   doc,
@@ -180,6 +186,14 @@ export default function AdminDashboard() {
   const [testWhatsAppPhone, setTestWhatsAppPhone] = useState("");
   const [testingWhatsApp, setTestingWhatsApp] = useState(false);
 
+  // Account password setup/update state
+  const [newAccountPassword, setNewAccountPassword] = useState("");
+  const [savingAccountPassword, setSavingAccountPassword] = useState(false);
+  const [sendingPasswordEmail, setSendingPasswordEmail] = useState(false);
+  const [hasPasswordLinked, setHasPasswordLinked] = useState(() =>
+    Boolean(user?.providerData.some((p) => p.providerId === "password"))
+  );
+
   const [savingSettings, setSavingSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<"shipments" | "accounts" | "settings">("shipments");
   const [manifestModal, setManifestModal] = useState<{
@@ -300,6 +314,64 @@ export default function AdminDashboard() {
       toast.error("Network error");
     } finally {
       setTestingWhatsApp(false);
+    }
+  };
+
+  const handleSetAccountPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (newAccountPassword.length < 6) {
+      return toast.error("Password must be at least 6 characters long");
+    }
+    setSavingAccountPassword(true);
+    try {
+      const alreadyHasPassword = user.providerData.some((p) => p.providerId === "password");
+      if (!alreadyHasPassword && user.email) {
+        const credential = EmailAuthProvider.credential(user.email, newAccountPassword);
+        await linkWithCredential(user, credential);
+      } else {
+        await updatePassword(user, newAccountPassword);
+      }
+      setHasPasswordLinked(true);
+      setNewAccountPassword("");
+      toast.success(`Password saved for ${user.email}! You can now sign in with Email & Password.`);
+    } catch (err: any) {
+      if (err?.code === "auth/requires-recent-login" && user.email) {
+        try {
+          await sendPasswordResetEmail(auth, user.email);
+          toast.info(
+            `For security, Firebase sent a password setup link to ${user.email}. Click the link in your email to finish setting your password.`
+          );
+        } catch {
+          toast.error("Please click 'Send Password Setup Email' below to set your password.");
+        }
+      } else if (err?.code === "auth/provider-already-linked") {
+        try {
+          await updatePassword(user, newAccountPassword);
+          setHasPasswordLinked(true);
+          setNewAccountPassword("");
+          toast.success(`Password updated for ${user.email}!`);
+        } catch (updateErr: any) {
+          toast.error(updateErr?.message || "Could not update password. Try sending the password setup email.");
+        }
+      } else {
+        toast.error(err?.message || "Failed to set password");
+      }
+    } finally {
+      setSavingAccountPassword(false);
+    }
+  };
+
+  const handleSendPasswordEmailFromDashboard = async () => {
+    if (!user?.email) return;
+    setSendingPasswordEmail(true);
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      toast.success(`Password setup link sent to ${user.email}! Check your inbox.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send password setup email");
+    } finally {
+      setSendingPasswordEmail(false);
     }
   };
 
@@ -1047,9 +1119,82 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Google-only Admin Account Password Setup Banner */}
+        {user && !hasPasswordLinked && !user.providerData.some((p) => p.providerId === "password") && (
+          <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
+                Create a Password for {user.email}
+              </h3>
+              <p className="text-xs text-indigo-800 mt-0.5">
+                Your account was created with Google Auth. Set a password below so you can sign in directly with Email &amp; Password.
+              </p>
+            </div>
+            <form onSubmit={handleSetAccountPassword} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="New password (min. 6 chars)"
+                value={newAccountPassword}
+                onChange={(e) => setNewAccountPassword(e.target.value)}
+                className="px-3 py-2 min-h-[38px] text-xs bg-white border border-indigo-300 rounded-lg text-slate-900 focus:outline-none focus:border-indigo-600"
+              />
+              <button
+                type="submit"
+                disabled={savingAccountPassword}
+                className="px-3.5 py-2 min-h-[38px] bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {savingAccountPassword ? "Saving..." : "Set Password"}
+              </button>
+              <button
+                type="button"
+                disabled={sendingPasswordEmail}
+                onClick={handleSendPasswordEmailFromDashboard}
+                className="px-3 py-2 min-h-[38px] bg-white hover:bg-indigo-100 text-indigo-700 border border-indigo-300 text-xs font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {sendingPasswordEmail ? "Sending..." : "Email Setup Link"}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* SETTINGS TAB */}
         {activeTab === "settings" && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 max-w-2xl w-full">
+            <div className="mb-8 border-b border-slate-100 pb-8">
+              <h2 className="text-lg font-semibold text-slate-900 mb-1">Account Password ({user?.email})</h2>
+              <p className="text-xs text-slate-500 mb-4">
+                Set or update the password for your account so you can log in with Email &amp; Password.
+              </p>
+              <form onSubmit={handleSetAccountPassword} className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="Enter new password (min. 6 chars)"
+                  value={newAccountPassword}
+                  onChange={(e) => setNewAccountPassword(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm focus:outline-blue-500 flex-1 sm:max-w-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={savingAccountPassword || newAccountPassword.length < 6}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 min-h-[44px] rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {savingAccountPassword ? "Saving..." : "Save Password"}
+                </button>
+                <button
+                  type="button"
+                  disabled={sendingPasswordEmail}
+                  onClick={handleSendPasswordEmailFromDashboard}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-4 py-2 min-h-[44px] rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {sendingPasswordEmail ? "Sending..." : "Send Setup Link to Email"}
+                </button>
+              </form>
+            </div>
+
             <div className="mb-8 border-b border-slate-100 pb-8">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">WhatsApp Integration</h2>
               <div className="flex flex-col sm:flex-row gap-3">
