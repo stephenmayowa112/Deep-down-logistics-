@@ -397,3 +397,14 @@ app.post("/api/whatsapp/webhook", (req, res) => {
     res.sendStatus(404);
   }
 });
+
+// Redirect /inventory to the shipping inventory portal
+const INVENTORY_APP_URL = "https://shipping-inventry-gp91.vercel.app";
+
+app.get(["/inventory", "/inventory/*"], (req, res) => {
+  const subPath = req.path.replace(/^\/inventory/, "");
+  const queryIndex = req.originalUrl.indexOf("?");
+  const query = queryIndex !== -1 ? req.originalUrl.slice(queryIndex) : "";
+  res.redirect(302, `${INVENTORY_APP_URL}${subPath}${query}`);
+});
+

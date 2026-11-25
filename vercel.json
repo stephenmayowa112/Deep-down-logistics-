@@ -2,6 +2,18 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/inventory",
+      "destination": "https://shipping-inventry-gp91.vercel.app",
+      "permanent": false
+    },
+    {
+      "source": "/inventory/:path*",
+      "destination": "https://shipping-inventry-gp91.vercel.app/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
