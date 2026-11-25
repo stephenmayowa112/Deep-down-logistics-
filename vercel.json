@@ -5,12 +5,12 @@
   "redirects": [
     {
       "source": "/inventory",
-      "destination": "https://shipping-inventry-gp91.vercel.app",
+      "destination": "https://deepdownlogistics-inventory.vercel.app",
       "permanent": false
     },
     {
       "source": "/inventory/:path*",
-      "destination": "https://shipping-inventry-gp91.vercel.app/:path*",
+      "destination": "https://deepdownlogistics-inventory.vercel.app/:path*",
       "permanent": false
     }
   ],

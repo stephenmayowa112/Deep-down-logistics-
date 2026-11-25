@@ -127,7 +127,7 @@ const AccountStatusGate = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const INVENTORY_APP_URL = "https://shipping-inventry-gp91.vercel.app";
+const INVENTORY_APP_URL = "https://deepdownlogistics-inventory.vercel.app";
 
 const InventoryRedirect = () => {
   React.useEffect(() => {

@@ -399,7 +399,7 @@ app.post("/api/whatsapp/webhook", (req, res) => {
 });
 
 // Redirect /inventory to the shipping inventory portal
-const INVENTORY_APP_URL = "https://shipping-inventry-gp91.vercel.app";
+const INVENTORY_APP_URL = "https://deepdownlogistics-inventory.vercel.app";
 
 app.get(["/inventory", "/inventory/*"], (req, res) => {
   const subPath = req.path.replace(/^\/inventory/, "");
