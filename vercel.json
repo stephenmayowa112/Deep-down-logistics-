@@ -2,20 +2,16 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "redirects": [
+  "rewrites": [
     {
       "source": "/inventory",
-      "destination": "https://deepdownlogistics-inventory.vercel.app",
-      "permanent": false
+      "destination": "https://deepdownlogistics-inventory.vercel.app/inventory"
     },
     {
       "source": "/inventory/:path*",
-      "destination": "https://deepdownlogistics-inventory.vercel.app/:path*",
-      "permanent": false
-    }
-  ],
-  "rewrites": [
+      "destination": "https://deepdownlogistics-inventory.vercel.app/inventory/:path*"
+    },
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|inventory).*)", "destination": "/index.html" }
   ]
 }

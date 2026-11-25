@@ -398,13 +398,38 @@ app.post("/api/whatsapp/webhook", (req, res) => {
   }
 });
 
-// Redirect /inventory to the shipping inventory portal
+// Reverse-proxy /inventory to the shipping inventory deployment
 const INVENTORY_APP_URL = "https://deepdownlogistics-inventory.vercel.app";
 
-app.get(["/inventory", "/inventory/*"], (req, res) => {
-  const subPath = req.path.replace(/^\/inventory/, "");
-  const queryIndex = req.originalUrl.indexOf("?");
-  const query = queryIndex !== -1 ? req.originalUrl.slice(queryIndex) : "";
-  res.redirect(302, `${INVENTORY_APP_URL}${subPath}${query}`);
+app.all(["/inventory", "/inventory/*"], async (req, res) => {
+  try {
+    const queryIndex = req.originalUrl.indexOf("?");
+    const query = queryIndex !== -1 ? req.originalUrl.slice(queryIndex) : "";
+    const targetUrl = `${INVENTORY_APP_URL}${req.path}${query}`;
+
+    const upstream = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        accept: req.headers.accept || "*/*",
+        "user-agent": req.headers["user-agent"] || "DeepDownLogistics-Proxy",
+      },
+    });
+
+    res.status(upstream.status);
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) {
+      res.setHeader("content-type", contentType);
+    }
+    const cacheControl = upstream.headers.get("cache-control");
+    if (cacheControl) {
+      res.setHeader("cache-control", cacheControl);
+    }
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.send(buffer);
+  } catch (error) {
+    console.error("Inventory proxy error:", error);
+    res.status(502).send("Failed to load inventory application.");
+  }
 });
 

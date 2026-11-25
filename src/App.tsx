@@ -127,28 +127,16 @@ const AccountStatusGate = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const INVENTORY_APP_URL = "https://deepdownlogistics-inventory.vercel.app";
-
-const InventoryRedirect = () => {
+const InventoryProxyFallback = () => {
   React.useEffect(() => {
-    const subPath = window.location.pathname.replace(/^\/inventory/, "");
-    const targetUrl = `${INVENTORY_APP_URL}${subPath}${window.location.search}${window.location.hash}`;
-    window.location.replace(targetUrl);
+    // If reached via client-side React Router navigation, force a server/Vercel request for /inventory
+    window.location.reload();
   }, []);
 
   return (
     <div className="min-h-dvh bg-[#FFFFFF] text-[#0B1220] flex flex-col items-center justify-center px-4 font-sans">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A54E1] mb-4" />
-      <p className="text-sm text-[#4B5565]">
-        Redirecting to Shipping Inventory{" "}
-        <a
-          href={INVENTORY_APP_URL}
-          className="text-[#0A54E1] font-semibold underline"
-        >
-          ({INVENTORY_APP_URL})
-        </a>
-        ...
-      </p>
+      <p className="text-sm text-[#4B5565]">Loading Shipping Inventory...</p>
     </div>
   );
 };
@@ -177,8 +165,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/inventory" element={<InventoryRedirect />} />
-          <Route path="/inventory/*" element={<InventoryRedirect />} />
+          <Route path="/inventory" element={<InventoryProxyFallback />} />
+          <Route path="/inventory/*" element={<InventoryProxyFallback />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
